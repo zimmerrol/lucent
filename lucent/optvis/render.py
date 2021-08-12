@@ -81,48 +81,48 @@ def render_vis(
 
     transform_f = transform.compose(transforms)
 
-    hook = hook_model(model, image_f)
-    objective_f = objectives.as_objective(objective_f)
+    with ModelHook(model, f) as hook:
+        objective_f = objectives.as_objective(objective_f)
 
-    if verbose:
-        model(transform_f(image_f()))
-        print("Initial loss: {:.3f}".format(objective_f(hook)))
-
-    images = []
-    try:
-        for i in tqdm(range(1, max(thresholds) + 1), disable=(not progress)):
-            def closure():
-                optimizer.zero_grad()
-                try:
-                    model(transform_f(image_f()))
-                except RuntimeError as ex:
-                    if i == 1:
-                        # Only display the warning message
-                        # on the first iteration, no need to do that
-                        # every iteration
-                        warnings.warn(
-                            "Some layers could not be computed because the size of the "
-                            "image is not big enough. It is fine, as long as the non"
-                            "computed layers are not used in the objective function"
-                            f"(exception details: '{ex}')"
-                        )
-                loss = objective_f(hook)
-                loss.backward()
-                return loss
-                
-            optimizer.step(closure)
-            if i in thresholds:
-                image = tensor_to_img_array(image_f())
-                if verbose:
-                    print("Loss at step {}: {:.3f}".format(i, objective_f(hook)))
-                    if show_inline:
-                        show(image)
-                images.append(image)
-    except KeyboardInterrupt:
-        print("Interrupted optimization at step {:d}.".format(i))
         if verbose:
-            print("Loss at step {}: {:.3f}".format(i, objective_f(hook)))
-        images.append(tensor_to_img_array(image_f()))
+            model(transform_f(image_f()))
+            print("Initial loss: {:.3f}".format(objective_f(hook)))
+
+        images = []
+        try:
+            for i in tqdm(range(1, max(thresholds) + 1), disable=(not progress)):
+                def closure():
+                    optimizer.zero_grad()
+                    try:
+                        model(transform_f(image_f()))
+                    except RuntimeError as ex:
+                        if i == 1:
+                            # Only display the warning message
+                            # on the first iteration, no need to do that
+                            # every iteration
+                            warnings.warn(
+                                "Some layers could not be computed because the size of the "
+                                "image is not big enough. It is fine, as long as the non"
+                                "computed layers are not used in the objective function"
+                                f"(exception details: '{ex}')"
+                            )
+                    loss = objective_f(hook)
+                    loss.backward()
+                    return loss
+
+                optimizer.step(closure)
+                if i in thresholds:
+                    image = tensor_to_img_array(image_f())
+                    if verbose:
+                        print("Loss at step {}: {:.3f}".format(i, objective_f(hook)))
+                        if show_inline:
+                            show(image)
+                    images.append(image)
+        except KeyboardInterrupt:
+            print("Interrupted optimization at step {:d}.".format(i))
+            if verbose:
+                print("Loss at step {}: {:.3f}".format(i, objective_f(hook)))
+            images.append(tensor_to_img_array(image_f()))
 
     if save_image:
         export(image_f(), image_name)
