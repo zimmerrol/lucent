@@ -180,30 +180,39 @@ class ModuleHook:
         self.hook.remove()
 
 
-def hook_model(model, image_f):
-    features = OrderedDict()
+class ModelHook:
+    def __init__(model, image_f):
+        self.model = model
+        self.image_f = image_f
+       
+        
+    def __enter__(self):
+        # recursive hooking function
+        def hook_layers(net, prefix=[]):
+            if hasattr(net, "_modules"):
+                for name, layer in net._modules.items():
+                    if layer is None:
+                        # e.g. GoogLeNet's aux1 and aux2 layers
+                        continue
+                    self.features["_".join(prefix + [name])] = ModuleHook(layer)
+                    hook_layers(layer, prefix=prefix + [name])
 
-    # recursive hooking function
-    def hook_layers(net, prefix=[]):
-        if hasattr(net, "_modules"):
-            for name, layer in net._modules.items():
-                if layer is None:
-                    # e.g. GoogLeNet's aux1 and aux2 layers
-                    continue
-                features["_".join(prefix + [name])] = ModuleHook(layer)
-                hook_layers(layer, prefix=prefix + [name])
+        hook_layers(self.model)
+        
+        def hook(layer):
+            if layer == "input":
+                out = self.image_f()
+            elif layer == "labels":
+                out = list(self.features.values())[-1].features
+            else:
+                assert layer in self.features, f"Invalid layer {layer}. Retrieve the list of layers with `lucent.modelzoo.util.get_model_layers(model)`."
+                out = self.features[layer].features
+            assert out is not None, "There are no saved feature maps. Make sure to put the model in eval mode, like so: `model.to(device).eval()`. See README for example."
+            return out
 
-    hook_layers(model)
-
-    def hook(layer):
-        if layer == "input":
-            out = image_f()
-        elif layer == "labels":
-            out = list(features.values())[-1].features
-        else:
-            assert layer in features, f"Invalid layer {layer}. Retrieve the list of layers with `lucent.modelzoo.util.get_model_layers(model)`."
-            out = features[layer].features
-        assert out is not None, "There are no saved feature maps. Make sure to put the model in eval mode, like so: `model.to(device).eval()`. See README for example."
-        return out
-
-    return hook
+        return hook
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for layer in self.features:
+            layer.close()
+        
