@@ -81,7 +81,7 @@ def render_vis(
 
     transform_f = transform.compose(transforms)
 
-    with ModelHook(model, f) as hook:
+    with ModelHook(model, image_f) as hook:
         objective_f = objectives.as_objective(objective_f)
 
         if verbose:
@@ -181,11 +181,11 @@ class ModuleHook:
 
 
 class ModelHook:
-    def __init__(model, image_f):
+    def __init__(self, model, image_f):
         self.model = model
         self.image_f = image_f
+        self.features = {}
        
-        
     def __enter__(self):
         # recursive hooking function
         def hook_layers(net, prefix=[]):
@@ -213,6 +213,8 @@ class ModelHook:
         return hook
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for layer in self.features:
-            layer.close()
+        for k in self.features.copy():
+            self.features[k].close()
+            del self.features[k]
+        
         

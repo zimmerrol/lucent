@@ -36,9 +36,9 @@ def test_render_vis(inceptionv1_model):
     assert imgs[0].shape == (1, 128, 128, 3)
 
 
-def test_hook_model(inceptionv1_model):
+def test_modelhook(inceptionv1_model):
     _, image_f = param.image(224)
-    hook = render.hook_model(inceptionv1_model, image_f)
-    inceptionv1_model(image_f())
-    assert hook("input").shape == (1, 3, 224, 224)
-    assert hook("labels").shape == (1, 1008)
+    with render.ModelHook(inceptionv1_model, image_f) as hook:
+        inceptionv1_model(image_f())
+        assert hook("input").shape == (1, 3, 224, 224)
+        assert hook("labels").shape == (1, 1008)
