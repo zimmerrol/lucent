@@ -42,3 +42,13 @@ def test_modelhook(inceptionv1_model):
         inceptionv1_model(image_f())
         assert hook("input").shape == (1, 3, 224, 224)
         assert hook("labels").shape == (1, 1008)
+
+def test_partial_modelhook(inceptionv1_model):
+    _, image_f = param.image(224)
+    with render.ModelHook(inceptionv1_model, image_f, layer_names=["mixed4a"]) as hook:
+        inceptionv1_model(image_f())
+        assert hook("input").shape == (1, 3, 224, 224)
+        assert hook("labels").shape == (1, 1008)
+        assert hook("mixed4a").shape == (1, 508, 14, 14)
+        with pytest.raises(AssertionError):
+            print(hook("mixed4b").shape)

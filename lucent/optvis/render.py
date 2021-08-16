@@ -181,19 +181,27 @@ class ModuleHook:
 
 
 class ModelHook:
-    def __init__(self, model, image_f):
+    def __init__(self, model, image_f=None, layer_names=None):
         self.model = model
         self.image_f = image_f
         self.features = {}
+        self.layer_names = layer_names
        
     def __enter__(self):
         # recursive hooking function
         def hook_layers(net, prefix=[]):
             if hasattr(net, "_modules"):
-                for name, layer in net._modules.items():
+                layers = list(net._modules.items())
+                for i, (name, layer) in enumerate(layers):
                     if layer is None:
                         # e.g. GoogLeNet's aux1 and aux2 layers
                         continue
+
+                    if self.layer_names is not None and i < len(layers) - 1:
+                        # only save activations for chosen layers
+                        if name not in self.layer_names:
+                            continue
+                    
                     self.features["_".join(prefix + [name])] = ModuleHook(layer)
                     hook_layers(layer, prefix=prefix + [name])
 
