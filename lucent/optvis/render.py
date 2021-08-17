@@ -170,11 +170,20 @@ class ModuleHook:
     def __init__(self, module):
         self.hook = module.register_forward_hook(self.hook_fn)
         self.module = None
-        self.features = None
+        self._features = dict()
+
+    @property
+    def features(self):
+        keys = list(sorted(self._features.keys()))
+        if len(keys) == 1:
+            return self._features[keys[0]]
+        else:
+            return torch.nn.parallel.gather([self._features[k] for k in keys], keys[0])
 
     def hook_fn(self, module, input, output):
         self.module = module
-        self.features = output
+        device = output.device
+        self._features[device] = output
 
     def close(self):
         self.hook.remove()
@@ -205,7 +214,10 @@ class ModelHook:
                     self.features["_".join(prefix + [name])] = ModuleHook(layer)
                     hook_layers(layer, prefix=prefix + [name])
 
-        hook_layers(self.model)
+        if isinstance(self.model, torch.nn.DataParallel):   
+            hook_layers(self.model.module)
+        else:
+            hook_layers(self.model)
         
         def hook(layer):
             if layer == "input":

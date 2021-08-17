@@ -38,5 +38,8 @@ def get_model_layers(model, getLayerRepr=False):
                     layers.append("_".join(prefix + [name]))
                 get_layers(layer, prefix=prefix+[name])
 
+    if isinstance(model, torch.nn.DataParallel):
+        model = model.module
+
     get_layers(model)
     return layers

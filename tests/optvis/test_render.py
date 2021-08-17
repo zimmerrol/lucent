@@ -22,19 +22,19 @@ from lucent.optvis import render, param
 from lucent.modelzoo import inceptionv1
 
 
-@pytest.fixture
-def inceptionv1_model():
+@pytest.fixture(params=[True, False])
+def inceptionv1_model(request):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = inceptionv1().to(device).eval()
+    if request.param:
+        model = torch.nn.DataParallel(model)
     return model
-
 
 def test_render_vis(inceptionv1_model):
     thresholds = (1, 2)
     imgs = render.render_vis(inceptionv1_model, "mixed4a:0", thresholds=thresholds, show_image=False)
     assert len(imgs) == len(thresholds)
     assert imgs[0].shape == (1, 128, 128, 3)
-
 
 def test_modelhook(inceptionv1_model):
     _, image_f = param.image(224)
