@@ -183,7 +183,7 @@ class ModuleHook:
     def hook_fn(self, module, input, output):
         self.module = module
         device = output.device
-        self._features[device] = output
+        self._features[str(device)] = output
 
     def close(self):
         self.hook.remove()
