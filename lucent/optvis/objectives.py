@@ -19,15 +19,24 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from decorator import decorator
+import functools
 from lucent.optvis.objectives_util import _make_arg_str, _extract_act_pos, _T_handle_batch
 
 
 class Objective():
 
-    def __init__(self, objective_func, name="", description=""):
+    def __init__(self, objective_func, affected_layers, name="", description=""):
         self.objective_func = objective_func
         self.name = name
         self.description = description
+        if isinstance(affected_layers, str):
+            affected_layers = [affected_layers]
+        assert isinstance(affected_layers, list)
+        self._affected_layers = affected_layers
+
+    @property
+    def affected_layers(self):
+        return self._affected_layers.copy()
 
     def __call__(self, model):
         return self.objective_func(model)
@@ -37,20 +46,24 @@ class Objective():
             objective_func = lambda model: other + self(model)
             name = self.name
             description = self.description
+            affected_layers = self.affected_layers
         else:
             objective_func = lambda model: self(model) + other(model)
             name = ", ".join([self.name, other.name])
             description = "Sum(" + " +\n".join([self.description, other.description]) + ")"
-        return Objective(objective_func, name=name, description=description)
+            affected_layers = list(set(self.affected_layers).union(set(other.affected_layers)))
+        
+        return Objective(objective_func, affected_layers=affected_layers, name=name, description=description)
 
     @staticmethod
     def sum(objs):
         objective_func = lambda T: sum([obj(T) for obj in objs])
         descriptions = [obj.description for obj in objs]
         description = "Sum(" + " +\n".join(descriptions) + ")"
+        affected_layers = functools.reduce(lambda a1, a2: list(set(a1).union(set(a2))), [o.affected_layers for o in objs])
         names = [obj.name for obj in objs]
         name = ", ".join(names)
-        return Objective(objective_func, name=name, description=description)
+        return Objective(objective_func, affected_layers, name=name, description=description)
 
     def __neg__(self):
         return -1 * self
@@ -61,7 +74,7 @@ class Objective():
     def __mul__(self, other):
         if isinstance(other, (int, float)):
             objective_func = lambda model: other * self(model)
-            return Objective(objective_func, name=self.name, description=self.description)
+            return Objective(objective_func, self.affected_layers, name=self.name, description=self.description)
         else:
             # Note: In original Lucid library, objectives can be multiplied with non-numbers
             # Removing for now until we find a good use case
