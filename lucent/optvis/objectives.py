@@ -20,11 +20,13 @@ import torch
 import torch.nn.functional as F
 from decorator import decorator
 from lucent.optvis.objectives_util import _make_arg_str, _extract_act_pos, _T_handle_batch
+from typing import Callable, Optional, Sequence, Union
+from torch import nn
 
+ObjectiveT = Callable[[nn.Module], torch.Tensor]
 
-class Objective():
-
-    def __init__(self, objective_func, name="", description=""):
+class Objective:
+    def __init__(self, objective_func: ObjectiveT, name: str = "", description: str = ""):
         self.objective_func = objective_func
         self.name = name
         self.description = description
@@ -44,7 +46,7 @@ class Objective():
         return Objective(objective_func, name=name, description=description)
 
     @staticmethod
-    def sum(objs):
+    def sum(objs: Sequence[Objective]):
         objective_func = lambda T: sum([obj(T) for obj in objs])
         descriptions = [obj.description for obj in objs]
         description = "Sum(" + " +\n".join(descriptions) + ")"
@@ -96,7 +98,7 @@ def handle_batch(batch=None):
 
 
 @wrap_objective()
-def neuron(layer, n_channel, x=None, y=None, batch=None):
+def neuron(layer: str, n_channel, x=None, y=None, batch=None):
     """Visualize a single neuron of a single channel.
 
     Defaults to the center neuron. When width and height are even numbers, we
@@ -116,7 +118,7 @@ def neuron(layer, n_channel, x=None, y=None, batch=None):
 
     """
     @handle_batch(batch)
-    def inner(model):
+    def inner(model: nn.Module):
         layer_t = model(layer)
         layer_t = _extract_act_pos(layer_t, x, y)
         return -layer_t[:, n_channel].mean()
@@ -124,20 +126,20 @@ def neuron(layer, n_channel, x=None, y=None, batch=None):
 
 
 @wrap_objective()
-def channel(layer, n_channel, batch=None):
+def channel(layer: str, n_channel, batch=None):
     """Visualize a single channel"""
     @handle_batch(batch)
-    def inner(model):
+    def inner(model: nn.Module):
         return -model(layer)[:, n_channel].mean()
     return inner
 
 @wrap_objective()
-def neuron_weight(layer, weight, x=None, y=None, batch=None):
+def neuron_weight(layer: str, weight, x=None, y=None, batch=None):
     """ Linearly weighted channel activation at one location as objective
     weight: a torch Tensor vector same length as channel.
     """
     @handle_batch(batch)
-    def inner(model):
+    def inner(model: nn.Module):
         layer_t = model(layer)
         layer_t = _extract_act_pos(layer_t, x, y)
         if weight is None:
@@ -147,21 +149,21 @@ def neuron_weight(layer, weight, x=None, y=None, batch=None):
     return inner
 
 @wrap_objective()
-def channel_weight(layer, weight, batch=None):
+def channel_weight(layer: str, weight, batch=None):
     """ Linearly weighted channel activation as objective
     weight: a torch Tensor vector same length as channel. """
     @handle_batch(batch)
-    def inner(model):
+    def inner(model: nn.Module):
         layer_t = model(layer)
         return -(layer_t * weight.view(1, -1, 1, 1)).mean()
     return inner
 
 @wrap_objective()
-def localgroup_weight(layer, weight=None, x=None, y=None, wx=1, wy=1, batch=None):
+def localgroup_weight(layer: str, weight=None, x=None, y=None, wx=1, wy=1, batch=None):
     """ Linearly weighted channel activation around some spot as objective
     weight: a torch Tensor vector same length as channel. """
     @handle_batch(batch)
-    def inner(model):
+    def inner(model: nn.Module):
         layer_t = model(layer)
         if weight is None:
             return -(layer_t[:, :, y:y + wy, x:x + wx]).mean()
@@ -170,7 +172,7 @@ def localgroup_weight(layer, weight=None, x=None, y=None, wx=1, wy=1, batch=None
     return inner
 
 @wrap_objective()
-def direction(layer, direction, batch=None):
+def direction(layer: str, direction: torch.Tensor, batch: Optional[int] = None):
     """Visualize a direction
 
     InceptionV1 example:
@@ -196,8 +198,8 @@ def direction(layer, direction, batch=None):
 
 
 @wrap_objective()
-def direction_neuron(layer,
-                     direction,
+def direction_neuron(layer: str,
+                     direction: torch.Tensor,
                      x=None,
                      y=None,
                      batch=None):
@@ -220,7 +222,7 @@ def direction_neuron(layer,
     """
 
     @handle_batch(batch)
-    def inner(model):
+    def inner(model: nn.Module):
         # breakpoint()
         layer_t = model(layer)
         layer_t = _extract_act_pos(layer_t, x, y)
@@ -230,7 +232,7 @@ def direction_neuron(layer,
     return inner
 
 
-def _torch_blur(tensor, out_c=3):
+def _torch_blur(tensor: torch.Tensor, out_c: int = 3):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     depth = tensor.shape[1]
     weight = np.zeros([depth, depth, out_c, out_c])
@@ -260,7 +262,7 @@ def blur_input_each_step():
 
 
 @wrap_objective()
-def channel_interpolate(layer1, n_channel1, layer2, n_channel2):
+def channel_interpolate(layer1: str, n_channel1: int, layer2: int, n_channel2: int):
     """Interpolate between layer1, n_channel1 and layer2, n_channel2.
     Optimize for a convex combination of layer1, n_channel1 and
     layer2, n_channel2, transitioning across the batch.
@@ -272,7 +274,7 @@ def channel_interpolate(layer1, n_channel1, layer2, n_channel2):
     Returns:
         Objective
     """
-    def inner(model):
+    def inner(model: nn.Module):
         batch_n = list(model(layer1).shape)[0]
         arr1 = model(layer1)[:, n_channel1]
         arr2 = model(layer2)[:, n_channel2]
@@ -286,7 +288,7 @@ def channel_interpolate(layer1, n_channel1, layer2, n_channel2):
 
 
 @wrap_objective()
-def alignment(layer, decay_ratio=2):
+def alignment(layer: str, decay_ratio: float = 2):
     """Encourage neighboring images to be similar.
     When visualizing the interpolation between two objectives, it's often
     desirable to encourage analogous objects to be drawn in the same position,
@@ -302,7 +304,7 @@ def alignment(layer, decay_ratio=2):
     Returns:
         Objective.
     """
-    def inner(model):
+    def inner(model: nn.Module):
         batch_n = list(model(layer).shape)[0]
         layer_t = model(layer)
         accum = 0
@@ -316,7 +318,7 @@ def alignment(layer, decay_ratio=2):
 
 
 @wrap_objective()
-def diversity(layer):
+def diversity(layer: str):
     """Encourage diversity between each batch element.
 
     A neural net feature often responds to multiple things, but naive feature
@@ -334,19 +336,19 @@ def diversity(layer):
     Returns:
         Objective.
     """
-    def inner(model):
+    def inner(model: nn.Module):
         layer_t = model(layer)
         batch, channels, _, _ = layer_t.shape
         flattened = layer_t.view(batch, channels, -1)
         grams = torch.matmul(flattened, torch.transpose(flattened, 1, 2))
-        grams = F.normalize(grams, p=2, dim=(1, 2))
+        grams = F.normalize(grams, p=2, dim=(1, 2))  # type: ignore
         return -sum([ sum([ (grams[i]*grams[j]).sum()
                for j in range(batch) if j != i])
                for i in range(batch)]) / batch
     return inner
 
 
-def as_objective(obj):
+def as_objective(obj: Union[str, Callable[[torch.Tensor], torch.Tensor]]) -> Callable[[torch.Tensor], torch.Tensor]:
     """Convert obj into Objective class.
 
     Strings of the form "layer:n" become the Objective channel(layer, n).
@@ -363,6 +365,6 @@ def as_objective(obj):
     if callable(obj):
         return obj
     if isinstance(obj, str):
-        layer, chn = obj.split(":")
-        layer, chn = layer.strip(), int(chn)
+        layer, chn_s = obj.split(":")
+        layer, chn = layer.strip(), int(chn_s)
         return channel(layer, chn)
