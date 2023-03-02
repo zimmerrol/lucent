@@ -175,7 +175,9 @@ class ModuleHook:
     @property
     def features(self):
         keys = list(sorted(self._features.keys()))
-        if len(keys) == 1:
+        if len(keys) == 0:
+            return None
+        elif len(keys) == 1:
             return self._features[keys[0]]
         else:
             return torch.nn.parallel.gather([self._features[k] for k in keys], keys[0])
