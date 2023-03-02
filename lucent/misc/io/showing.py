@@ -22,12 +22,12 @@ from __future__ import absolute_import, division, print_function
 # from io import BytesIO
 import base64
 from string import Template
-import numpy as np
+
 import IPython.display
+import numpy as np
 
-from lucent.misc.io.serialize_array import serialize_array, array_to_jsbuffer
 from lucent.misc.io.collapse_channels import collapse_channels
-
+from lucent.misc.io.serialize_array import array_to_jsbuffer, serialize_array
 
 # create logger with module name, e.g. lucid.misc.io.showing
 # log = logging.getLogger(__name__)

@@ -17,8 +17,8 @@
 
 from __future__ import absolute_import, division, print_function
 
-from lucent.optvis.param.spatial import pixel_image, fft_image
 from lucent.optvis.param.color import to_valid_rgb
+from lucent.optvis.param.spatial import fft_image, pixel_image
 
 
 def image(w, h=None, sd=None, batch=None, decorrelate=True, fft=True, channels=None):

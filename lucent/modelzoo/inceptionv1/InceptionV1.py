@@ -32,8 +32,8 @@ from __future__ import absolute_import, division, print_function
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from lucent.modelzoo.inceptionv1 import helper_layers
 
+from lucent.modelzoo.inceptionv1 import helper_layers
 
 model_urls = {
     # InceptionV1 model used in Lucid examples, converted by ProGamerGov

@@ -17,27 +17,17 @@ from __future__ import absolute_import, division, print_function
 
 import warnings
 from collections import OrderedDict
-import numpy as np
-from tqdm import tqdm
-from PIL import Image
-import torch
-from torch import nn
-from typing import (
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-)
 from types import TracebackType
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
-from lucent.optvis import objectives, transform, param
+import numpy as np
+import torch
+from PIL import Image
+from torch import nn
+from tqdm import tqdm
+
 from lucent.misc.io import show
-
+from lucent.optvis import objectives, param, transform
 
 ObjectiveT = Union[str, Callable[[torch.Tensor], torch.Tensor]]
 ParamT = Callable[[], Tuple[Sequence[torch.Tensor], Callable[[], torch.Tensor]]]

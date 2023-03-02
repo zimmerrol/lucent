@@ -15,9 +15,8 @@
 
 from __future__ import absolute_import, division, print_function
 
-import torch
 import numpy as np
-
+import torch
 
 color_correlation_svd_sqrt = np.asarray(
     [[0.26, 0.09, 0.02], [0.27, 0.00, -0.05], [0.27, -0.09, 0.03]]

@@ -15,17 +15,16 @@
 
 from __future__ import absolute_import, division, print_function
 
+from typing import Callable, Optional, Sequence, Union
+
 import numpy as np
 import torch
 import torch.nn.functional as F
 from decorator import decorator
-from lucent.optvis.objectives_util import (
-    _make_arg_str,
-    _extract_act_pos,
-    _T_handle_batch,
-)
-from typing import Callable, Optional, Sequence, Union
 from torch import nn
+
+from lucent.optvis.objectives_util import (_extract_act_pos, _make_arg_str,
+                                           _T_handle_batch)
 
 ObjectiveT = Callable[[nn.Module], torch.Tensor]
 

@@ -18,12 +18,11 @@
 from __future__ import absolute_import, division, print_function
 
 import base64
+from io import BytesIO
 
 # import logging
 import numpy as np
 import PIL.Image
-from io import BytesIO
-
 
 # create logger with module name, e.g. lucid.misc.io.array_to_image
 # log = logging.getLogger(__name__)

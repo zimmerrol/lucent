@@ -15,14 +15,14 @@
 
 from __future__ import absolute_import, division, print_function
 
-import torch
-import torch.nn.functional as F
-from torchvision.transforms import Normalize
-import numpy as np
-import kornia
-from kornia.geometry.transform import translate
 from typing import Callable, Sequence
 
+import kornia
+import numpy as np
+import torch
+import torch.nn.functional as F
+from kornia.geometry.transform import translate
+from torchvision.transforms import Normalize
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 KORNIA_VERSION = kornia.__version__
