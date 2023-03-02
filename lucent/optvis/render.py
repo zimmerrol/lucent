@@ -22,7 +22,17 @@ from tqdm import tqdm
 from PIL import Image
 import torch
 from torch import nn
-from typing import Callable, Dict, List, Optional, Sequence, Sequence, Tuple, Type, Union
+from typing import (
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
 from types import TracebackType
 
 from lucent.optvis import objectives, transform, param
@@ -32,6 +42,7 @@ from lucent.misc.io import show
 ObjectiveT = Union[str, Callable[[torch.Tensor], torch.Tensor]]
 ParamT = Callable[[], Tuple[Sequence[torch.Tensor], Callable[[], torch.Tensor]]]
 OptimizerT = Callable[[Sequence[torch.Tensor]], torch.optim.Optimizer]
+
 
 def render_vis(
     model: nn.Module,
@@ -98,6 +109,7 @@ def render_vis(
         images = []
         try:
             for i in tqdm(range(1, max(thresholds) + 1), disable=(not progress)):
+
                 def closure():
                     optimizer.zero_grad()
                     try:
@@ -199,13 +211,17 @@ class ModuleHook:
 
 
 class ModelHook:
-    def __init__(self, model: nn.Module, image_f: Optional[Callable[[], torch.Tensor]] = None,
-                 layer_names: Optional[Sequence[int]] = None):
+    def __init__(
+        self,
+        model: nn.Module,
+        image_f: Optional[Callable[[], torch.Tensor]] = None,
+        layer_names: Optional[Sequence[int]] = None,
+    ):
         self.model = model
         self.image_f = image_f
         self.features: Dict[str, ModuleHook] = {}
         self.layer_names = layer_names
-       
+
     def __enter__(self):
         # recursive hooking function
         def hook_layers(net, prefix=[]):
@@ -220,30 +236,38 @@ class ModelHook:
                         # only save activations for chosen layers
                         if name not in self.layer_names:
                             continue
-                    
+
                     self.features["_".join(prefix + [name])] = ModuleHook(layer)
                     hook_layers(layer, prefix=prefix + [name])
 
-        if isinstance(self.model, torch.nn.DataParallel):   
+        if isinstance(self.model, torch.nn.DataParallel):
             hook_layers(self.model.module)
         else:
             hook_layers(self.model)
-        
+
         def hook(layer):
             if layer == "input":
                 out = self.image_f()
             elif layer == "labels":
                 out = list(self.features.values())[-1].features
             else:
-                assert layer in self.features, f"Invalid layer {layer}. Retrieve the list of layers with `lucent.modelzoo.util.get_model_layers(model)`."
+                assert (
+                    layer in self.features
+                ), f"Invalid layer {layer}. Retrieve the list of layers with `lucent.modelzoo.util.get_model_layers(model)`."
                 out = self.features[layer].features
-            assert out is not None, "There are no saved feature maps. Make sure to put the model in eval mode, like so: `model.to(device).eval()`. See README for example."
+            assert (
+                out is not None
+            ), "There are no saved feature maps. Make sure to put the model in eval mode, like so: `model.to(device).eval()`. See README for example."
             return out
 
         return hook
-    
-    def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException],
-                 traceback: Optional[TracebackType]):
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ):
         for k in self.features.copy():
             self.features[k].close()
             del self.features[k]

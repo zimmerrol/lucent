@@ -39,12 +39,19 @@ def jitter(d: int) -> Callable[[torch.Tensor], torch.Tensor]:
     return inner
 
 
-def pad(w: int, mode: str = "reflect", constant_value: float = 0.5) -> Callable[[torch.Tensor], torch.Tensor]:
+def pad(
+    w: int, mode: str = "reflect", constant_value: float = 0.5
+) -> Callable[[torch.Tensor], torch.Tensor]:
     if mode != "constant":
         constant_value = 0
 
     def inner(image_t: torch.Tensor) -> torch.Tensor:
-        return F.pad(image_t, [w] * 4, mode=mode, value=constant_value,)
+        return F.pad(
+            image_t,
+            [w] * 4,
+            mode=mode,
+            value=constant_value,
+        )
 
     return inner
 
@@ -64,13 +71,15 @@ def random_scale(scales: Sequence[float]) -> Callable[[torch.Tensor], torch.Tens
     return inner
 
 
-def random_rotate(angles: Sequence[float], units: str = "degrees") -> Callable[[torch.Tensor], torch.Tensor]:
+def random_rotate(
+    angles: Sequence[float], units: str = "degrees"
+) -> Callable[[torch.Tensor], torch.Tensor]:
     def inner(image_t: torch.Tensor) -> torch.Tensor:
         b, _, h, w = image_t.shape
         # kornia takes degrees
         alpha = _rads2angle(np.random.choice(angles), units)
         angle = torch.ones(b) * alpha
-        if KORNIA_VERSION < '0.4.0':
+        if KORNIA_VERSION < "0.4.0":
             scale = torch.ones(b)
         else:
             scale = torch.ones(b, 2)
@@ -84,7 +93,9 @@ def random_rotate(angles: Sequence[float], units: str = "degrees") -> Callable[[
     return inner
 
 
-def compose(transforms: Sequence[Callable[[torch.Tensor], torch.Tensor]]) -> Callable[[torch.Tensor], torch.Tensor]:
+def compose(
+    transforms: Sequence[Callable[[torch.Tensor], torch.Tensor]]
+) -> Callable[[torch.Tensor], torch.Tensor]:
     def inner(x: torch.Tensor) -> torch.Tensor:
         for transform in transforms:
             x = transform(x)
