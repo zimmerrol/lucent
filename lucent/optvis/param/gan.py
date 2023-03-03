@@ -15,11 +15,9 @@ Jun.4th 2020
 import os
 from collections import OrderedDict
 from os.path import join
-from sys import platform
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 load_urls = True  # If you have downloaded the pt files you can set the netsdir and set load_urls as False.
 netsdir = "~"  # the place you put the networks

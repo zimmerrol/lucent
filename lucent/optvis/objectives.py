@@ -23,8 +23,11 @@ import torch.nn.functional as F
 from decorator import decorator
 from torch import nn
 
-from lucent.optvis.objectives_util import (_extract_act_pos, _make_arg_str,
-                                           _T_handle_batch)
+from lucent.optvis.objectives_util import (
+    _extract_act_pos,
+    _make_arg_str,
+    _T_handle_batch,
+)
 
 ObjectiveT = Callable[[nn.Module], torch.Tensor]
 

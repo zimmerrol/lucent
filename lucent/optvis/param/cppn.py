@@ -66,6 +66,7 @@ def cppn(
     # Initialize model
     net = torch.nn.Sequential(OrderedDict(layers)).to(device)
     # Initialize weights
+
     def weights_init(module):
         if isinstance(module, torch.nn.Conv2d):
             torch.nn.init.normal_(module.weight, 0, np.sqrt(1 / module.in_channels))
