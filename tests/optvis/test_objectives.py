@@ -99,6 +99,17 @@ def test_mul_div_raises():
     assert str(excinfo.value) == "Can only multiply by int or float. Received type <class 'lucent.optvis.objectives.Objective'>"
 
 
+def test_sub_objectives():
+    objective_values = [objectives.channel("mixed4a", 0),
+                        objectives.channel("mixed5a", 1)]
+    objective_a = objectives.Objective.sum(objective_values)
+    objective_b = -1 * objective_values[0] + 2 * objective_values[1]
+    assert objective_a.sub_objectives == objective_values
+    assert len(objective_b.sub_objectives) == 2
+    assert objective_b.sub_objectives[0].sub_objectives == [objective_values[0]]
+    assert objective_b.sub_objectives[1].sub_objectives == [objective_values[1]]
+
+
 def test_blur_input_each_step(inceptionv1_model):
     objective = objectives.blur_input_each_step()
     assert_gradient_descent(objective, inceptionv1_model)

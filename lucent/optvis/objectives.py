@@ -34,11 +34,15 @@ ObjectiveT = Callable[[nn.Module], torch.Tensor]
 
 class Objective:
     def __init__(
-        self, objective_func: ObjectiveT, name: str = "", description: str = ""
+        self, objective_func: ObjectiveT, name: str = "", description: str = "",
+            sub_objectives: Optional[Sequence["Objective"]] = None,
     ):
         self.objective_func = objective_func
         self.name = name
         self.description = description
+        if sub_objectives is None:
+            sub_objectives = []
+        self.sub_objectives = sub_objectives
 
     def __call__(self, model):
         return self.objective_func(model)
@@ -48,22 +52,27 @@ class Objective:
             objective_func = lambda model: other + self(model)
             name = self.name
             description = self.description
+            sub_objectives = self.sub_objectives
         else:
             objective_func = lambda model: self(model) + other(model)
             name = ", ".join([self.name, other.name])
             description = (
                 "Sum(" + " +\n".join([self.description, other.description]) + ")"
             )
-        return Objective(objective_func, name=name, description=description)
+            sub_objectives = [self, other]
+        return Objective(objective_func, name=name, description=description,
+                         sub_objectives=sub_objectives)
 
     @staticmethod
-    def sum(objs: Sequence[Objective]):
-        objective_func = lambda T: sum([obj(T) for obj in objs])
+    def sum(objs: Sequence["Objective"]):
+        objective_func = lambda model: sum([obj(model) for obj in objs])
         descriptions = [obj.description for obj in objs]
         description = "Sum(" + " +\n".join(descriptions) + ")"
+        sub_objectives = objs
         names = [obj.name for obj in objs]
         name = ", ".join(names)
-        return Objective(objective_func, name=name, description=description)
+        return Objective(objective_func, name=name, description=description,
+                         sub_objectives=sub_objectives)
 
     def __neg__(self):
         return -1 * self
@@ -75,7 +84,8 @@ class Objective:
         if isinstance(other, (int, float)):
             objective_func = lambda model: other * self(model)
             return Objective(
-                objective_func, name=self.name, description=self.description
+                objective_func, name=self.name, description=self.description,
+                sub_objectives=[self]
             )
         else:
             # Note: In original Lucid library, objectives can be multiplied with non-numbers
