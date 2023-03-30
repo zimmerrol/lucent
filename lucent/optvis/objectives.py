@@ -63,6 +63,7 @@ class Objective:
                 "Sum(" + " +\n".join([self.description, other.description]) + ")"
             )
             sub_objectives = [self, other]
+
         return Objective(
             objective_func,
             name=name,
@@ -78,6 +79,7 @@ class Objective:
         sub_objectives = objs
         names = [obj.name for obj in objs]
         name = ", ".join(names)
+
         return Objective(
             objective_func,
             name=name,
@@ -105,6 +107,7 @@ class Objective:
             description = (
                 "Mult(" + " +\n".join([self.description, other.description]) + ")"
             )
+
             return Objective(
                 objective_func,
                 name=self.name,
@@ -127,6 +130,7 @@ class Objective:
             description = (
                 "Div(" + " +\n".join([self.description, other.description]) + ")"
             )
+
             return Objective(
                 objective_func,
                 name=self.name,
