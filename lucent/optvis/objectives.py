@@ -87,19 +87,39 @@ class Objective:
                 objective_func, name=self.name, description=self.description,
                 sub_objectives=[self]
             )
+        elif isinstance(other, Objective):
+            objective_func = lambda model: other(model) * self(model)
+            description = (
+                    "Mult(" + " +\n".join([self.description, other.description]) + ")"
+            )
+            return Objective(
+                objective_func, name=self.name, description=description,
+                sub_objectives=[self, other]
+            )
         else:
             # Note: In original Lucid library, objectives can be multiplied with non-numbers
             # Removing for now until we find a good use case
             raise TypeError(
-                "Can only multiply by int or float. Received type " + str(type(other))
+                "Can only multiply by int, float or Objective. "
+                "Received type " + str(type(other))
             )
 
     def __truediv__(self, other):
         if isinstance(other, (int, float)):
             return self.__mul__(1 / other)
+        elif isinstance(other, Objective):
+            objective_func = lambda model: other(model) * self(model)
+            description = (
+                    "Div(" + " +\n".join([self.description, other.description]) + ")"
+            )
+            return Objective(
+                objective_func, name=self.name, description=description,
+                sub_objectives=[self, other]
+            )
         else:
             raise TypeError(
-                "Can only divide by int or float. Received type " + str(type(other))
+                "Can only divide by int, float or Objective. "
+                "Received type " + str(type(other))
             )
 
     def __rmul__(self, other):
