@@ -33,6 +33,10 @@ ParamT = Callable[[], Tuple[Sequence[torch.Tensor], Callable[[], torch.Tensor]]]
 OptimizerT = Callable[[Sequence[torch.Tensor]], torch.optim.Optimizer]
 
 
+class RenderInterrupt(Exception):
+    pass
+
+
 def render_vis(
     model: nn.Module,
     objective_f: ObjectiveT,
@@ -126,8 +130,22 @@ def render_vis(
                         if show_inline:
                             show(image)
                     images.append(image)
+
                 if iteration_callback:
-                    iteration_callback(hook, loss, image_f())
+                    try:
+                        iteration_callback(hook, loss, image_f())
+                    except RenderInterrupt:
+                        # This is a special exception that allows to stop the rendering
+                        # process from the callback.
+                        # This is useful, e.g., to stop the rendering process
+                        # when the loss is below a certain threshold.
+                        print("Interrupted optimization at step {:d}.".format(i))
+                        if verbose:
+                            print(
+                                "Loss at step {}: {:.3f}".format(i, objective_f(hook)))
+                        images.append(tensor_to_img_array(image_f()))
+                        break
+
         except KeyboardInterrupt:
             print("Interrupted optimization at step {:d}.".format(i))
             if verbose:
