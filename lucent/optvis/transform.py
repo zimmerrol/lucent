@@ -90,7 +90,6 @@ def random_rotate(
             center, angle, scale).to(device)
         rotated_image = kornia.geometry.transform.warp_affine(
             image_t.float(), M, dsize=(h, w))
-        print(image_t.shape, rotated_image.shape)
         return rotated_image
 
     return inner
