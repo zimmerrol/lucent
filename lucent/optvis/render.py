@@ -53,7 +53,7 @@ def render_vis(
     show_inline: bool = False,
     fixed_image_size: Optional[int] = None,
     iteration_callback: Optional[
-        Callable[[ModelHook, torch.Tensor, torch.Tensor], None]
+        Callable[[ModelHook, torch.Tensor, torch.Tensor, Sequence[torch.Tensor]], None]
     ] = None,
 ):
     if param_f is None:
@@ -133,7 +133,7 @@ def render_vis(
 
                 if iteration_callback:
                     try:
-                        iteration_callback(hook, loss, image_f())
+                        iteration_callback(hook, loss, image_f(), params)
                     except RenderInterrupt:
                         # This is a special exception that allows to stop the rendering
                         # process from the callback.
