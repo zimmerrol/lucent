@@ -33,7 +33,9 @@ def inceptionv1_model(request):
 
 def test_render_vis(inceptionv1_model):
     thresholds = (1, 2)
-    imgs = render.render_vis(inceptionv1_model, "mixed4a:0", thresholds=thresholds, show_image=False)
+    imgs = render.render_vis(
+        inceptionv1_model, "mixed4a:0", thresholds=thresholds, show_image=False
+    )
     assert len(imgs) == len(thresholds)
     assert imgs[0].shape == (1, 128, 128, 3)
 
@@ -43,8 +45,13 @@ def test_interrupt_render_vis(inceptionv1_model, capfd):
         raise render.RenderInterrupt()
 
     thresholds = (10,)
-    imgs = render.render_vis(inceptionv1_model, "mixed4a:0", thresholds=thresholds,
-                             show_image=False, iteration_callback=iteration_callback)
+    imgs = render.render_vis(
+        inceptionv1_model,
+        "mixed4a:0",
+        thresholds=thresholds,
+        show_image=False,
+        iteration_callback=iteration_callback,
+    )
     assert len(imgs) == 1
     assert imgs[0].shape == (1, 128, 128, 3)
 
