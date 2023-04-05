@@ -15,7 +15,7 @@
 
 from __future__ import absolute_import, division, print_function
 
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -29,7 +29,8 @@ from lucent.optvis.objectives_util import (
     _T_handle_batch,
 )
 
-ObjectiveT = Callable[[nn.Module], torch.Tensor]
+ObjectiveReturnT = Union[torch.Tensor, Tuple[torch.Tensor, Sequence[torch.Tensor]]]
+ObjectiveT = Callable[[nn.Module, bool], ObjectiveReturnT]
 
 
 class Objective:
@@ -47,17 +48,43 @@ class Objective:
             sub_objectives = []
         self.sub_objectives = sub_objectives
 
-    def __call__(self, model):
-        return self.objective_func(model)
+    def __call__(
+        self, model: torch.nn.Module, return_sub_objectives: bool = False
+    ) -> ObjectiveReturnT:
+        return self.objective_func(model, return_sub_objectives)
 
     def __add__(self, other):
         if isinstance(other, (int, float)):
-            objective_func = lambda model: other + self(model)
+
+            def objective_func(
+                model: torch.nn.Module, return_sub_objectives: bool = False
+            ) -> ObjectiveReturnT:
+                inner = self(model, return_sub_objectives)
+                if not return_sub_objectives:
+                    return inner + other
+                else:
+                    return inner[0] + other, inner[1]
+
             name = self.name
             description = self.description
             sub_objectives = self.sub_objectives
         else:
-            objective_func = lambda model: self(model) + other(model)
+
+            def objective_func(
+                model: torch.nn.Module, return_sub_objectives: bool = False
+            ) -> ObjectiveReturnT:
+                inner_left = self(model, return_sub_objectives)
+                inner_right = other(model, return_sub_objectives)
+                if not return_sub_objectives:
+                    return inner_left + inner_right
+                else:
+                    return (
+                        inner_left[0] + inner_right[0],
+                        inner_left[1]
+                        + inner_right[1]
+                        + [inner_left[0], inner_right[0]],
+                    )
+
             name = ", ".join([self.name, other.name])
             description = (
                 "Sum(" + " +\n".join([self.description, other.description]) + ")"
@@ -73,7 +100,17 @@ class Objective:
 
     @staticmethod
     def sum(objs: Sequence["Objective"]):
-        objective_func = lambda model: sum([obj(model) for obj in objs])
+        def objective_func(
+            model: torch.nn.Module, return_sub_objectives: bool = False
+        ) -> ObjectiveReturnT:
+            inners = [obj(model, return_sub_objectives) for obj in objs]
+            if not return_sub_objectives:
+                return sum(inners)
+            else:
+                return sum(inner[0] for inner in inners), [
+                    it for inner in inners for it in inner[1]
+                ] + [inner[0] for inner in inners]
+
         descriptions = [obj.description for obj in objs]
         description = "Sum(" + " +\n".join(descriptions) + ")"
         sub_objectives = objs
@@ -95,7 +132,16 @@ class Objective:
 
     def __mul__(self, other):
         if isinstance(other, (int, float)):
-            objective_func = lambda model: other * self(model)
+
+            def objective_func(
+                model: torch.nn.Module, return_sub_objectives: bool = False
+            ) -> ObjectiveReturnT:
+                inner = self(model, return_sub_objectives)
+                if not return_sub_objectives:
+                    return inner * other
+                else:
+                    return inner[0] * other, inner[1]
+
             return Objective(
                 objective_func,
                 name=self.name,
@@ -103,7 +149,22 @@ class Objective:
                 sub_objectives=[self],
             )
         elif isinstance(other, Objective):
-            objective_func = lambda model: other(model) * self(model)
+
+            def objective_func(
+                model: torch.nn.Module, return_sub_objectives: bool = False
+            ) -> ObjectiveReturnT:
+                inner_left = self(model, return_sub_objectives)
+                inner_right = other(model, return_sub_objectives)
+                if not return_sub_objectives:
+                    return inner_left * inner_right
+                else:
+                    return (
+                        inner_left[0] * inner_right[0],
+                        inner_left[1]
+                        + inner_right[1]
+                        + [inner_left[0], inner_right[0]],
+                    )
+
             description = (
                 "Mult(" + " +\n".join([self.description, other.description]) + ")"
             )
@@ -126,7 +187,22 @@ class Objective:
         if isinstance(other, (int, float)):
             return self.__mul__(1 / other)
         elif isinstance(other, Objective):
-            objective_func = lambda model: other(model) * self(model)
+
+            def objective_func(
+                model: torch.nn.Module, return_sub_objectives: bool = False
+            ) -> ObjectiveReturnT:
+                inner_left = self(model, return_sub_objectives)
+                inner_right = other(model, return_sub_objectives)
+                if not return_sub_objectives:
+                    return inner_left / inner_right
+                else:
+                    return (
+                        inner_left[0] / inner_right[0],
+                        inner_left[1]
+                        + inner_right[1]
+                        + [inner_left[0], inner_right[0]],
+                    )
+
             description = (
                 "Div(" + " +\n".join([self.description, other.description]) + ")"
             )
@@ -153,7 +229,18 @@ class Objective:
 def wrap_objective():
     @decorator
     def inner(func, *args, **kwds):
-        objective_func = func(*args, **kwds)
+        inner_func = func(*args, **kwds)
+
+        def objective_func(
+            model: torch.nn.Module, return_sub_objectives: bool = False
+        ) -> ObjectiveReturnT:
+            # For atomic objectives there are no sub objectives, thus, we return an
+            # empty list.
+            if return_sub_objectives:
+                return inner_func(model), []
+            else:
+                return inner_func(model)
+
         objective_name = func.__name__
         args_str = " [" + ", ".join([_make_arg_str(arg) for arg in args]) + "]"
         description = objective_name.title() + args_str

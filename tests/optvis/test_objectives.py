@@ -15,15 +15,15 @@
 
 from __future__ import absolute_import, division, print_function
 
-import pytest
-
-import torch
 import random
-import numpy as np
-from lucent.util import set_seed
-from lucent.optvis import objectives, param, render
-from lucent.modelzoo import inceptionv1
 
+import numpy as np
+import pytest
+import torch
+
+from lucent.modelzoo import inceptionv1
+from lucent.optvis import objectives, param, render
+from lucent.util import set_seed
 
 set_seed(137)
 
@@ -113,7 +113,7 @@ def test_div(inceptionv1_model):
     assert_gradient_descent(objective, inceptionv1_model)
 
 
-def test_sub_objectives():
+def test_sub_objectives(inceptionv1_model):
     objective_values = [
         objectives.channel("mixed4a", 0),
         objectives.channel("mixed5a", 1),
@@ -124,6 +124,18 @@ def test_sub_objectives():
     assert len(objective_b.sub_objectives) == 2
     assert objective_b.sub_objectives[0].sub_objectives == [objective_values[0]]
     assert objective_b.sub_objectives[1].sub_objectives == [objective_values[1]]
+
+    params, image = param.image(224, batch=2)
+    with render.ModelHook(inceptionv1_model, image) as T:
+        inceptionv1_model(image())
+        objective_a_values = objective_a(T, return_sub_objectives=True)
+        objective_b_values = objective_b(T, return_sub_objectives=True)
+        assert len(objective_a_values) == 2
+        assert len(objective_b_values) == 2
+        assert len(objective_a_values[1]) == 2
+        assert len(objective_b_values[1]) == 2
+        assert sum(objective_a_values[1]) == objective_a_values[0]
+        assert sum(objective_b_values[1]) == objective_b_values[0]
 
 
 def test_blur_input_each_step(inceptionv1_model):
