@@ -532,9 +532,7 @@ def diversity(layer: str):
     return inner
 
 
-def as_objective(
-    obj: Union[str, Callable[[torch.Tensor], torch.Tensor]]
-) -> Callable[[torch.Tensor], torch.Tensor]:
+def as_objective(obj: Union[str, Objective, ObjectiveT]) -> ObjectiveT:
     """Convert obj into Objective class.
 
     Strings of the form "layer:n" become the Objective channel(layer, n).
