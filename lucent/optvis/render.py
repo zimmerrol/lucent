@@ -112,7 +112,8 @@ def render_vis(
             # We use an ExitStack to make sure that that replacement of the activation
             # functions in torch with our redirect ones is undone when we exit
             # the context.
-            stack.enter_context(redirections.redirected_relu())
+            stack.enter_context(redirections.redirect_relu())
+            stack.enter_context(redirections.redirect_gelu())
 
         if verbose:
             model(transform_f(image_f()))
