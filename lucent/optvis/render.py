@@ -53,7 +53,7 @@ def render_vis(
     image_name: Optional[str] = None,
     show_inline: bool = False,
     fixed_image_size: Optional[int] = None,
-    use_redirected_activation: bool = False,
+    redirected_activation_warmup: int = 0,
     iteration_callback: Optional[
         Callable[
             [
@@ -108,7 +108,7 @@ def render_vis(
     objective_f = objectives.as_objective(objective_f)
 
     with ModelHook(model, image_f) as hook, contextlib.ExitStack() as stack:
-        if use_redirected_activation:
+        if redirected_activation_warmup:
             # We use an ExitStack to make sure that that replacement of the activation
             # functions in torch with our redirect ones is undone when we exit
             # the context.
@@ -164,9 +164,11 @@ def render_vis(
                         images.append(tensor_to_img_array(image_f()))
                         break
 
-                if i == 16:
+                if i == redirected_activation_warmup:
                     # Stop using redirected versions of activation functions after
-                    # 16 iterations (this is a heuristic from lucid).
+                    # redirected_activation_warmup iterations
+                    # (for redirected_activation_warmup = 16, this is a heuristic
+                    # from lucid).
                     stack.close()
 
         except KeyboardInterrupt:
