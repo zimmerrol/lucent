@@ -42,7 +42,7 @@ model_urls = {
 
 
 class InceptionV1(nn.Module):
-    def __init__(self, pretrained=False, progress=True, redirected_ReLU=True):
+    def __init__(self, pretrained=False, progress=True):
         super(InceptionV1, self).__init__()
         self.conv2d0_pre_relu_conv = nn.Conv2d(
             in_channels=3,
@@ -504,7 +504,7 @@ class InceptionV1(nn.Module):
             in_features=1024, out_features=1008, bias=True
         )
 
-        self.add_layers(redirected_ReLU)
+        self.add_layers()
 
         if pretrained:
             self.load_state_dict(
@@ -513,11 +513,8 @@ class InceptionV1(nn.Module):
                 )
             )
 
-    def add_layers(self, redirected_ReLU=True):
-        if redirected_ReLU:
-            relu = helper_layers.RedirectedReluLayer
-        else:
-            relu = helper_layers.ReluLayer
+    def add_layers(self):
+        relu = nn.ReLU
         self.conv2d0 = relu()
         self.maxpool0 = helper_layers.MaxPool2dLayer()
         self.conv2d1 = relu()

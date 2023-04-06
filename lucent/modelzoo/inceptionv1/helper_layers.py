@@ -55,37 +55,6 @@ class PadLayer(nn.Module):
         return F.pad(tensor, padding, value=value)
 
 
-class ReluLayer(nn.Module):
-    def forward(self, tensor):
-        return F.relu(tensor)
-
-
-class RedirectedReLU(torch.autograd.Function):
-    """
-    A workaround when there is no gradient flow from an initial random input
-    See https://github.com/tensorflow/lucid/blob/master/lucid/misc/redirected_relu_grad.py
-    Note: this means that the gradient is technically "wrong"
-    TODO: the original Lucid library has a more sophisticated way of doing this
-    """
-
-    @staticmethod
-    def forward(ctx, input_tensor):
-        ctx.save_for_backward(input_tensor)
-        return input_tensor.clamp(min=0)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        (input_tensor,) = ctx.saved_tensors
-        grad_input = grad_output.clone()
-        grad_input[input_tensor < 0] = grad_input[input_tensor < 0] * 1e-1
-        return grad_input
-
-
-class RedirectedReluLayer(nn.Module):
-    def forward(self, tensor):
-        return RedirectedReLU.apply(tensor)
-
-
 class SoftMaxLayer(nn.Module):
     def forward(self, tensor, dim=1):
         return F.softmax(tensor, dim=dim)
