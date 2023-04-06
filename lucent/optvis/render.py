@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import, division, print_function
 
+import contextlib
 import warnings
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -25,7 +26,7 @@ from torch import nn
 from tqdm import tqdm
 
 from lucent.misc.io import show
-from lucent.optvis import objectives, param, transform
+from lucent.optvis import objectives, param, redirections, transform
 from lucent.optvis.hooks import ModelHook
 
 ObjectiveT = Union[str, Callable[[torch.Tensor], torch.Tensor]]
@@ -52,6 +53,7 @@ def render_vis(
     image_name: Optional[str] = None,
     show_inline: bool = False,
     fixed_image_size: Optional[int] = None,
+    use_redirected_activation: bool = False,
     iteration_callback: Optional[
         Callable[
             [
@@ -105,7 +107,13 @@ def render_vis(
 
     objective_f = objectives.as_objective(objective_f)
 
-    with ModelHook(model, image_f) as hook:
+    with ModelHook(model, image_f) as hook, contextlib.ExitStack() as stack:
+        if use_redirected_activation:
+            # We use an ExitStack to make sure that that replacement of the activation
+            # functions in torch with our redirect ones is undone when we exit
+            # the context.
+            stack.enter_context(redirections.redirected_relu())
+
         if verbose:
             model(transform_f(image_f()))
             print("Initial loss: {:.3f}".format(objective_f(hook)))
@@ -154,6 +162,11 @@ def render_vis(
                             )
                         images.append(tensor_to_img_array(image_f()))
                         break
+
+                if i == 16:
+                    # Stop using redirected versions of activation functions after
+                    # 16 iterations (this is a heuristic from lucid).
+                    stack.close()
 
         except KeyboardInterrupt:
             print("Interrupted optimization at step {:d}.".format(i))
