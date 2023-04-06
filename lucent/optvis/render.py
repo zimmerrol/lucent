@@ -16,7 +16,7 @@
 from __future__ import absolute_import, division, print_function
 
 import warnings
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -56,7 +56,7 @@ def render_vis(
         Callable[
             [
                 ModelHook,
-                (torch.Tensor, Sequence[torch.Tensor]),
+                Tuple[torch.Tensor, Sequence[torch.Tensor]],
                 torch.Tensor,
                 Sequence[torch.Tensor],
             ],
