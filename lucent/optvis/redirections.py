@@ -100,7 +100,7 @@ class RedirectedGELUFunction(torch.autograd.Function):
             # we redirect the gradient to the input if the gradient before points
             # in positive direction.
             redirected_grad_input = torch.where(
-                (torch.abs(gelu_grad) < 0.01) | (grad_input > 0),
+                (input < 0.0) | (grad_input > 0),
                 torch.zeros_like(grad_input),
                 grad_input,
             )
