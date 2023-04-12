@@ -58,7 +58,7 @@ def render_vis(
         Callable[
             [
                 ModelHook,
-                (torch.Tensor, Sequence[torch.Tensor]),
+                Tuple[torch.Tensor, Sequence[torch.Tensor]],
                 torch.Tensor,
                 Sequence[torch.Tensor],
             ],
