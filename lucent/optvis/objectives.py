@@ -15,7 +15,7 @@
 
 from __future__ import absolute_import, division, print_function
 
-from typing import Callable, Optional, Sequence, Tuple, Union, Literal
+from typing import Callable, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -23,11 +23,8 @@ import torch.nn.functional as F
 from decorator import decorator
 from torch import nn
 
-from lucent.optvis.objectives_util import (
-    _extract_act_pos,
-    _make_arg_str,
-    _T_handle_batch,
-)
+from lucent.optvis.objectives_util import (_extract_act_pos, _make_arg_str,
+                                           _T_handle_batch)
 
 ObjectiveReturnT = Union[torch.Tensor, Tuple[torch.Tensor, Sequence[torch.Tensor]]]
 ObjectiveT = Callable[[nn.Module, bool], ObjectiveReturnT]
