@@ -51,11 +51,14 @@ def channel_last_conv_linear_model_and_channel_mode():
             self.mixed3a_1x1_pre_relu_conv = torch.nn.Linear(3, 64, bias=False)
             self.mixed4a = torch.nn.Linear(64, 480, bias=False)
             self.mixed4c = torch.nn.Linear(480, 512, bias=False)
+            self.relu = torch.nn.ReLU()
 
         def forward(self, x):
             x = torch.permute(x, (0, 2, 3, 1))
             x = self.mixed3a_1x1_pre_relu_conv(x)
+            x = self.relu(x)
             x = self.mixed4a(x)
+            x = self.relu(x)
             x = self.mixed4c(x)
             return torch.permute(x, (0, 3, 1, 2))
 
