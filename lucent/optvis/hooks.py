@@ -21,8 +21,9 @@ class ModuleHook:
             return torch.nn.parallel.gather([self._features[k] for k in keys], keys[0])
 
     def hook_fn(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
-        device = output.device
-        self._features[str(device)] = output
+        if torch.is_tensor(output):
+            device = output.device
+            self._features[str(device)] = output
 
     def close(self):
         self.hook.remove()
