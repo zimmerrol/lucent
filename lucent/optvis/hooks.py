@@ -33,7 +33,7 @@ class ModelHook:
         self,
         model: nn.Module,
         image_f: Optional[Callable[[], torch.Tensor]] = None,
-        layer_names: Optional[Sequence[int]] = None,
+        layer_names: Optional[Sequence[str]] = None,
     ):
         self.model = model
         self.image_f = image_f
@@ -53,6 +53,9 @@ class ModelHook:
                     if self.layer_names is not None and i < len(layers) - 1:
                         # only save activations for chosen layers
                         if name not in self.layer_names:
+                            # Don't save activations for this layer but check if it
+                            # has any layers we want to save.
+                            hook_layers(layer, prefix=prefix + [name])
                             continue
 
                     self.features["_".join(prefix + [name])] = ModuleHook(layer)
