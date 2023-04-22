@@ -23,7 +23,10 @@ class ModuleHook:
     def hook_fn(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
         if torch.is_tensor(output):
             device = output.device
-            self._features[str(device)] = output
+        elif isinstance(output, tuple):
+            # happens for multi-head attention layers in ViTs
+            device = output[0].device
+        self._features[str(device)] = output
 
     def close(self):
         self.hook.remove()
