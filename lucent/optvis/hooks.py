@@ -33,7 +33,7 @@ class ModelHook:
         self,
         model: nn.Module,
         image_f: Optional[Callable[[], torch.Tensor]] = None,
-        layer_names: Optional[Sequence[int]] = None,
+        layer_names: Optional[Sequence[str]] = None,
     ):
         self.model = model
         self.image_f = image_f
@@ -46,16 +46,20 @@ class ModelHook:
             if hasattr(net, "_modules"):
                 layers = list(net._modules.items())
                 for i, (name, layer) in enumerate(layers):
+                    effective_name = "_".join(prefix + [name])
                     if layer is None:
                         # e.g. GoogLeNet's aux1 and aux2 layers
                         continue
 
                     if self.layer_names is not None and i < len(layers) - 1:
                         # only save activations for chosen layers
-                        if name not in self.layer_names:
+                        if effective_name not in self.layer_names:
+                            # Don't save activations for this layer but check if it
+                            # has any layers we want to save.
+                            hook_layers(layer, prefix=prefix + [name])
                             continue
 
-                    self.features["_".join(prefix + [name])] = ModuleHook(layer)
+                    self.features[effective_name] = ModuleHook(layer)
                     hook_layers(layer, prefix=prefix + [name])
 
         if isinstance(self.model, torch.nn.DataParallel):
