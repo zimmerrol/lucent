@@ -63,6 +63,7 @@ def render_vis(
             None,
         ]
     ] = None,
+    additional_layers_of_interest: Optional[List[str]] = None,
 ):
     if param_f is None:
         param_f = lambda: param.image(128)
@@ -105,7 +106,9 @@ def render_vis(
 
     objective_f = objectives.as_objective(objective_f)
 
-    with ModelHook(model, image_f) as hook:
+    with ModelHook(
+        model, image_f, objective_f.relevant_layers + additional_layers_of_interest
+    ) as hook:
         if verbose:
             model(transform_f(image_f()))
             print("Initial loss: {:.3f}".format(objective_f(hook)))
