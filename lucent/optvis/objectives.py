@@ -15,7 +15,18 @@
 
 from __future__ import absolute_import, division, print_function
 
-from typing import Callable, Literal, Optional, Sequence, Tuple, Union
+import typing
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    List,
+    Protocol,
+)
 
 import numpy as np
 import torch
@@ -23,11 +34,24 @@ import torch.nn.functional as F
 from decorator import decorator
 from torch import nn
 
-from lucent.optvis.objectives_util import (_extract_act_pos, _make_arg_str,
-                                           _T_handle_batch)
+from lucent.optvis.objectives_util import (
+    _extract_act_pos,
+    _make_arg_str,
+    _T_handle_batch,
+)
 
 ObjectiveReturnT = Union[torch.Tensor, Tuple[torch.Tensor, Sequence[torch.Tensor]]]
 ObjectiveT = Callable[[nn.Module, bool], ObjectiveReturnT]
+WrapObjectiveInnerT = Tuple[Callable[[nn.Module], torch.Tensor], List[str]]
+
+
+class WrapObjectiveOuterT(Protocol):
+    def __call__(self, *args: Any, **kwargs: Any) -> WrapObjectiveInnerT:
+        ...
+
+    @property
+    def __name__(self) -> str:
+        ...
 
 
 class Objective:
@@ -36,6 +60,7 @@ class Objective:
         objective_func: ObjectiveT,
         name: str = "",
         description: str = "",
+        relevant_layers: Optional[List[str]] = None,
         sub_objectives: Optional[Sequence["Objective"]] = None,
     ):
         self.objective_func = objective_func
@@ -44,11 +69,20 @@ class Objective:
         if sub_objectives is None:
             sub_objectives = []
         self.sub_objectives = sub_objectives
+        if relevant_layers is None:
+            relevant_layers = []
+        self._relevant_layers = relevant_layers
 
     def __call__(
         self, model: torch.nn.Module, return_sub_objectives: bool = False
     ) -> ObjectiveReturnT:
         return self.objective_func(model, return_sub_objectives)
+
+    @property
+    def relevant_layers(self) -> List[str]:
+        return self._relevant_layers + [
+            rl for so in self.sub_objectives for rl in so.relevant_layers
+        ]
 
     def __add__(self, other):
         if isinstance(other, (int, float)):
@@ -57,9 +91,14 @@ class Objective:
                 model: torch.nn.Module, return_sub_objectives: bool = False
             ) -> ObjectiveReturnT:
                 inner = self(model, return_sub_objectives)
+
                 if not return_sub_objectives:
+                    assert isinstance(inner, torch.Tensor)
                     return inner + other
                 else:
+                    assert isinstance(inner, (tuple, list))
+                    assert isinstance(inner[0], torch.Tensor)
+                    assert isinstance(inner[1], (tuple, list))
                     return inner[0] + other, inner[1]
 
             name = self.name
@@ -102,11 +141,17 @@ class Objective:
         ) -> ObjectiveReturnT:
             inners = [obj(model, return_sub_objectives) for obj in objs]
             if not return_sub_objectives:
-                return sum(inners)
+                assert all(isinstance(inner, torch.Tensor) for inner in inners)
+                return sum(inners)  # type: ignore
             else:
+                assert all(isinstance(inner, (tuple, list)) for inner in inners)
+                assert all(isinstance(inner[0], torch.Tensor) for inner in inners)
+                assert all(isinstance(inner[1], (tuple, list)) for inner in inners)
                 return sum(inner[0] for inner in inners), [
                     it for inner in inners for it in inner[1]
-                ] + [inner[0] for inner in inners]
+                ] + [
+                    inner[0] for inner in inners
+                ]  # type: ignore
 
         descriptions = [obj.description for obj in objs]
         description = "Sum(" + " +\n".join(descriptions) + ")"
@@ -137,6 +182,8 @@ class Objective:
                 if not return_sub_objectives:
                     return inner * other
                 else:
+                    assert isinstance(inner, (tuple, list))
+                    assert isinstance(inner[0], torch.Tensor)
                     return inner[0] * other, inner[1]
 
             return Objective(
@@ -225,8 +272,8 @@ class Objective:
 
 def wrap_objective():
     @decorator
-    def inner(func, *args, **kwds):
-        inner_func = func(*args, **kwds)
+    def inner(func: WrapObjectiveOuterT, *args, **kwds) -> Objective:
+        inner_func, relevant_layers = func(*args, **kwds)
 
         def objective_func(
             model: torch.nn.Module, return_sub_objectives: bool = False
@@ -241,7 +288,8 @@ def wrap_objective():
         objective_name = func.__name__
         args_str = " [" + ", ".join([_make_arg_str(arg) for arg in args]) + "]"
         description = objective_name.title() + args_str
-        return Objective(objective_func, objective_name, description)
+
+        return Objective(objective_func, objective_name, description, relevant_layers)
 
     return inner
 
@@ -258,7 +306,7 @@ def neuron(
     y=None,
     channel_mode: Union[Literal["first"], Literal["last"]] = "first",
     batch=None,
-):
+) -> WrapObjectiveInnerT:
     """Visualize a single neuron of a single channel.
 
     Defaults to the center neuron. When width and height are even numbers, we
@@ -287,7 +335,7 @@ def neuron(
         layer_t = _extract_act_pos(layer_t, x, y, channel_mode)
         return -layer_t[:, n_channel].mean()
 
-    return inner
+    return inner, [layer]
 
 
 @wrap_objective()
@@ -296,20 +344,20 @@ def channel(
     n_channel,
     channel_mode: Union[Literal["first"], Literal["last"]] = "first",
     batch=None,
-):
+) -> WrapObjectiveInnerT:
     """Visualize a single channel"""
 
     if channel_mode not in ("first", "last"):
         raise ValueError("channel_mode must be 'first' or 'last.")
 
     @handle_batch(batch)
-    def inner(model: nn.Module):
+    def inner(model: nn.Module) -> torch.Tensor:
         if channel_mode == "first":
             return -model(layer)[:, n_channel].mean()
         else:
             return -model(layer)[..., n_channel].mean()
 
-    return inner
+    return inner, [layer]
 
 
 @wrap_objective()
@@ -320,7 +368,7 @@ def neuron_weight(
     y=None,
     channel_mode: Union[Literal["first"], Literal["last"]] = "first",
     batch=None,
-):
+) -> WrapObjectiveInnerT:
     """Linearly weighted channel activation at one location as objective
     weight: a torch Tensor vector same length as channel.
     """
@@ -334,7 +382,7 @@ def neuron_weight(
         else:
             return -(layer_t.squeeze() * weight).mean()
 
-    return inner
+    return inner, [layer]
 
 
 @wrap_objective()
@@ -343,7 +391,7 @@ def channel_weight(
     weight,
     batch=None,
     channel_mode: Union[Literal["first"], Literal["last"]] = "first",
-):
+) -> WrapObjectiveInnerT:
     """Linearly weighted channel activation as objective
     weight: a torch Tensor vector same length as channel."""
     if channel_mode == "first":
@@ -358,7 +406,7 @@ def channel_weight(
         layer_t = model(layer)
         return -(layer_t * weight).mean()
 
-    return inner
+    return inner, [layer]
 
 
 @wrap_objective()
@@ -371,7 +419,7 @@ def localgroup_weight(
     wy=1,
     channel_mode: Union[Literal["first"], Literal["last"]] = "first",
     batch=None,
-):
+) -> WrapObjectiveInnerT:
     """Linearly weighted channel activation around some spot as objective
     weight: a torch Tensor vector same length as channel."""
 
@@ -392,7 +440,7 @@ def localgroup_weight(
                 layer_t[:, :, y : y + wy, x : x + wx] * weight.view(1, -1, 1, 1)
             ).mean()
 
-    return inner
+    return inner, [layer]
 
 
 @wrap_objective()
@@ -401,7 +449,7 @@ def direction(
     direction: torch.Tensor,
     channel_mode: Union[Literal["first"], Literal["last"]] = "first",
     batch: Optional[int] = None,
-):
+) -> WrapObjectiveInnerT:
     """Visualize a direction
 
     InceptionV1 example:
@@ -429,7 +477,7 @@ def direction(
     def inner(model):
         return -torch.nn.CosineSimilarity(dim=1)(direction, model(layer)).mean()
 
-    return inner
+    return inner, [layer]
 
 
 @wrap_objective()
@@ -440,7 +488,7 @@ def direction_neuron(
     y=None,
     channel_mode: Union[Literal["first"], Literal["last"]] = "first",
     batch=None,
-):
+) -> WrapObjectiveInnerT:
     """Visualize a single (x, y) position along the given direction
 
     Similar to the neuron objective, defaults to the center neuron.
@@ -473,7 +521,7 @@ def direction_neuron(
         layer_t = _extract_act_pos(layer_t, x, y, channel_mode)
         return -torch.nn.CosineSimilarity(dim=1)(direction, layer_t).mean()
 
-    return inner
+    return inner, [layer]
 
 
 def _torch_blur(tensor: torch.Tensor, out_c: int = 3):
@@ -504,17 +552,17 @@ def blur_input_each_step():
             t_input_blurred = _torch_blur(t_input)
         return -0.5 * torch.sum((t_input - t_input_blurred) ** 2)
 
-    return inner
+    return inner, []
 
 
 @wrap_objective()
 def channel_interpolate(
     layer1: str,
     n_channel1: int,
-    layer2: int,
+    layer2: str,
     n_channel2: int,
     channel_mode: Union[Literal["first"], Literal["last"]] = "first",
-):
+) -> WrapObjectiveInnerT:
     """Interpolate between layer1, n_channel1 and layer2, n_channel2.
     Optimize for a convex combination of layer1, n_channel1 and
     layer2, n_channel2, transitioning across the batch.
@@ -530,7 +578,7 @@ def channel_interpolate(
     if channel_mode not in ("first", "last"):
         raise ValueError("channel_mode must be 'first' or 'last.")
 
-    def inner(model: nn.Module):
+    def inner(model: nn.Module) -> torch.Tensor:
         batch_n = list(model(layer1).shape)[0]
 
         layer1_t = model(layer1)
@@ -543,17 +591,21 @@ def channel_interpolate(
         arr1 = layer1_t[:, n_channel1]
         arr2 = layer2_t[:, n_channel2]
         weights = np.arange(batch_n) / (batch_n - 1)
-        sum_loss = 0
+        losses = []
         for n in range(batch_n):
-            sum_loss -= (1 - weights[n]) * arr1[n].mean()
-            sum_loss -= weights[n] * arr2[n].mean()
+            loss = (1 - weights[n]) * arr1[n].mean()
+            loss -= weights[n] * arr2[n].mean()
+            losses.append(loss)
+        sum_loss = sum(losses)
         return sum_loss
 
-    return inner
+    return inner, [layer1, layer2]
 
 
 @wrap_objective()
-def alignment(layer: str, decay_ratio: float = 2):
+def alignment(
+    layer: str, decay_ratio: float = 2
+) -> Tuple[Callable[[nn.Module], torch.Tensor], List[str]]:
     """Encourage neighboring images to be similar.
     When visualizing the interpolation between two objectives, it's often
     desirable to encourage analogous objects to be drawn in the same position,
@@ -581,13 +633,13 @@ def alignment(layer: str, decay_ratio: float = 2):
                 accum += ((arr_a - arr_b) ** 2).mean() / decay_ratio ** float(d)
         return accum
 
-    return inner
+    return inner, [layer]
 
 
 @wrap_objective()
 def diversity(
     layer: str, channel_mode: Union[Literal["first"], Literal["last"]] = "first"
-):
+) -> WrapObjectiveInnerT:
     """Encourage diversity between each batch element.
 
     A neural net feature often responds to multiple things, but naive feature
@@ -626,10 +678,12 @@ def diversity(
             / batch
         )
 
-    return inner
+    return inner, [layer]
 
 
-def as_objective(obj: Union[str, Objective, ObjectiveT]) -> ObjectiveT:
+def as_objective(
+    obj: Union[str, Objective, Callable[[nn.Module], torch.Tensor]]
+) -> Objective:
     """Convert obj into Objective class.
 
     Strings of the form "layer:n" become the Objective channel(layer, n).
@@ -644,7 +698,8 @@ def as_objective(obj: Union[str, Objective, ObjectiveT]) -> ObjectiveT:
     if isinstance(obj, Objective):
         return obj
     if callable(obj):
-        return obj
+        obj = typing.cast(Callable[[nn.Module], torch.Tensor], obj)
+        return wrap_objective()(func=lambda *args, **kwargs: (obj, ["all"]))
     if isinstance(obj, str):
         layer, chn_s = obj.split(":")
         layer, chn = layer.strip(), int(chn_s)

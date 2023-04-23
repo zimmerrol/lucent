@@ -41,6 +41,8 @@ class ModelHook:
         self.layer_names = layer_names
 
     def __enter__(self):
+        hook_all_layers = "all" in self.layer_names
+
         # recursive hooking function
         def hook_layers(net, prefix=[]):
             if hasattr(net, "_modules"):
@@ -53,7 +55,10 @@ class ModelHook:
 
                     if self.layer_names is not None and i < len(layers) - 1:
                         # only save activations for chosen layers
-                        if effective_name not in self.layer_names:
+                        if (
+                            effective_name not in self.layer_names
+                            and not hook_all_layers
+                        ):
                             # Don't save activations for this layer but check if it
                             # has any layers we want to save.
                             hook_layers(layer, prefix=prefix + [name])
