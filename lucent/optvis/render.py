@@ -106,6 +106,9 @@ def render_vis(
 
     objective_f = objectives.as_objective(objective_f)
 
+    if additional_layers_of_interest is None:
+        additional_layers_of_interest = []
+
     with ModelHook(
         model, image_f, objective_f.relevant_layers + additional_layers_of_interest
     ) as hook:
