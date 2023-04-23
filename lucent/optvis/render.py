@@ -17,7 +17,7 @@ from __future__ import absolute_import, division, print_function
 
 import contextlib
 import warnings
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -58,13 +58,14 @@ def render_vis(
         Callable[
             [
                 ModelHook,
-                (torch.Tensor, Sequence[torch.Tensor]),
+                Tuple[torch.Tensor, Sequence[torch.Tensor]],
                 torch.Tensor,
                 Sequence[torch.Tensor],
             ],
             None,
         ]
     ] = None,
+    additional_layers_of_interest: Optional[List[str]] = None,
 ):
     if param_f is None:
         param_f = lambda: param.image(128)
@@ -107,7 +108,11 @@ def render_vis(
 
     objective_f = objectives.as_objective(objective_f)
 
-    with ModelHook(model, image_f) as hook, contextlib.ExitStack() as stack:
+    with ModelHook(
+            model,
+            image_f,
+            objective_f.relevant_layers + additional_layers_of_interest
+    ) as hook, contextlib.ExitStack() as stack:
         if redirected_activation_warmup:
             # We use an ExitStack to make sure that that replacement of the activation
             # functions in torch with our redirect ones is undone when we exit
