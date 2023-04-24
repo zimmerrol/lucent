@@ -41,7 +41,7 @@ class ModelHook:
         self.layer_names = layer_names
 
     def __enter__(self):
-        hook_all_layers = "all" in self.layer_names
+        hook_all_layers = self.layer_names is not None and "all" in self.layer_names
 
         # recursive hooking function
         def hook_layers(net, prefix=[]):
