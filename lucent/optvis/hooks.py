@@ -1,5 +1,5 @@
 from types import TracebackType
-from typing import Callable, Dict, Optional, Sequence, Type
+from typing import Callable, Dict, OrderedDict, Optional, Sequence, Type
 
 import torch
 from torch import nn
@@ -8,7 +8,7 @@ from torch import nn
 class ModuleHook:
     def __init__(self, module: nn.Module):
         self.hook = module.register_forward_hook(self.hook_fn)
-        self._features: Dict[str, torch.Tensor] = dict()
+        self._features: OrderedDict[str, torch.Tensor] = OrderedDict()
 
     @property
     def features(self):
@@ -21,12 +21,20 @@ class ModuleHook:
             return torch.nn.parallel.gather([self._features[k] for k in keys], keys[0])
 
     def hook_fn(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
+
+        def add_to_features(tnsr, i=None):
+            device = tnsr.device
+            if i is None:
+                self._features[str(device)] = tnsr
+            else:
+                self._features[f"{str(device)}_{i}"] = tnsr
+
         if torch.is_tensor(output):
-            device = output.device
+            add_to_features(output)
         elif isinstance(output, tuple):
-            # happens for multi-head attention layers in ViTs
-            device = output[0].device
-        self._features[str(device)] = output
+            for idx, out in enumerate(output):
+                if torch.is_tensor(out):
+                    add_to_features(out, idx)
 
     def close(self):
         self.hook.remove()
