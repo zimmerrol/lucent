@@ -21,12 +21,20 @@ class ModuleHook:
             return torch.nn.parallel.gather([self._features[k] for k in keys], keys[0])
 
     def hook_fn(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
+
+        def add_to_features(tnsr, i=None):
+            device = tnsr.device
+            if i is None:
+                self._features[str(device)] = tnsr
+            else:
+                self._features[f"{str(device)}_{i}"] = tnsr
+
         if torch.is_tensor(output):
-            device = output.device
+            add_to_features(output)
         elif isinstance(output, tuple):
-            # happens for multi-head attention layers in ViTs
-            device = output[0].device
-        self._features[str(device)] = output
+            for idx, out in enumerate(output):
+                if torch.is_tensor(out):
+                    add_to_features(out, idx)
 
     def close(self):
         self.hook.remove()
@@ -49,15 +57,10 @@ class ModelHook:
         def hook_layers(net, prefix=[]):
             if hasattr(net, "_modules"):
                 layers = list(net._modules.items())
-                for i, (name, layer) in enumerate(layers):
+                for name, layer in layers:
                     if layer is None:
                         # e.g. GoogLeNet's aux1 and aux2 layers
                         continue
-
-                    if self.layer_names is not None and i < len(layers) - 1:
-                        # only save activations for chosen layers
-                        if name not in self.layer_names:
-                            continue
 
                     self.features["_".join(prefix + [name])] = ModuleHook(layer)
                     hook_layers(layer, prefix=prefix + [name])
@@ -66,6 +69,13 @@ class ModelHook:
             hook_layers(self.model.module)
         else:
             hook_layers(self.model)
+
+        # remove all undesired layers from self.features
+        if self.layer_names is not None:
+            keys = list(self.features.keys())
+            for key in keys:
+                if key not in self.layer_names:
+                    del self.features[key]
 
         def hook(layer):
             if layer == "input":
