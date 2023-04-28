@@ -53,7 +53,7 @@ def render_vis(
     image_name: Optional[str] = None,
     show_inline: bool = False,
     fixed_image_size: Optional[int] = None,
-    redirected_activation_warmup: int = 0,
+    redirected_activation_warmup: int = 16,
     iteration_callback: Optional[
         Callable[
             [

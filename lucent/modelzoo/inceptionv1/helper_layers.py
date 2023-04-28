@@ -29,6 +29,8 @@ SOFTWARE.
 
 from __future__ import absolute_import, division, print_function
 
+import warnings
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -53,6 +55,42 @@ class PadLayer(nn.Module):
         if value is None:
             return F.pad(tensor, padding)
         return F.pad(tensor, padding, value=value)
+
+
+class LegacyRedirectedReLU(torch.autograd.Function):
+    """
+    A workaround when there is no gradient flow from an initial random input
+    See https://github.com/tensorflow/lucid/blob/master/lucid/misc/redirected_relu_grad.py
+    Note: this means that the gradient is technically "wrong"
+    The original Lucid library has a more sophisticated way of doing this, which will be
+    used by default in lucent, too. This is just a fallback, to re-run experiments that
+    used the old workaround used by old lucent versions.
+    """
+
+    @staticmethod
+    def forward(ctx, input_tensor):
+        ctx.save_for_backward(input_tensor)
+        return input_tensor.clamp(min=0)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        (input_tensor,) = ctx.saved_tensors
+        grad_input = grad_output.clone()
+        grad_input[input_tensor < 0] = grad_input[input_tensor < 0] * 1e-1
+        return grad_input
+
+
+class LegacyRedirectedReluLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        warnings.warn(
+            "LegacyRedirectedReluLayer is deprecated as this is not matching lucid's "
+            "redirection mechanism. Instead, use the redirected_activation_warmup "
+            "argument.")
+
+    def forward(self, tensor):
+        return LegacyRedirectedReLU.apply(tensor)
 
 
 class SoftMaxLayer(nn.Module):
