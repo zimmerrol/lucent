@@ -112,9 +112,7 @@ def render_vis(
         additional_layers_of_interest = []
 
     with ModelHook(
-            model,
-            image_f,
-            objective_f.relevant_layers + additional_layers_of_interest
+        model, image_f, objective_f.relevant_layers + additional_layers_of_interest
     ) as hook, contextlib.ExitStack() as stack:
         if redirected_activation_warmup:
             # We use an ExitStack to make sure that that replacement of the activation
@@ -122,6 +120,12 @@ def render_vis(
             # the context.
             stack.enter_context(redirections.redirect_relu())
             stack.enter_context(redirections.redirect_gelu())
+
+            warnings.warn(
+                "Using redirected activations at the beginning of "
+                "optimization. This should not be used at the same time "
+                "as the legacy RedirectedReLU mechanism."
+            )
 
         if verbose:
             model(transform_f(image_f()))
