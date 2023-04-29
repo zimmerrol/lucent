@@ -69,15 +69,15 @@ def test_render_vis(inceptionv1_model):
     "model",
     [pytest.lazy_fixture("gelu_dummy_model"), pytest.lazy_fixture("inceptionv1_model")],
 )
-@pytest.mark.parametrize("use_redirected_activation", [True, False])
-def test_redirect_activations(model, use_redirected_activation):
+@pytest.mark.parametrize("redirected_activation_warmup", [0, 16])
+def test_redirect_activations(model, redirected_activation_warmup):
     thresholds = (1, 2)
     imgs = render.render_vis(
         model,
         "mixed4a:0",
         thresholds=thresholds,
         show_image=False,
-        use_redirected_activation=use_redirected_activation,
+        redirected_activation_warmup=redirected_activation_warmup,
     )
     assert len(imgs) == len(thresholds)
     assert imgs[0].shape == (1, 128, 128, 3)
