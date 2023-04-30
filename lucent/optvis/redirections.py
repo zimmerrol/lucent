@@ -109,6 +109,7 @@ class RedirectedGELUFunction(torch.autograd.Function):
             # Only use redirected gradient where nothing got through original gradient.
             grad_input_reshaped = grad_input.view(grad_input.size(0), -1)
             grad_mag = torch.norm(grad_input_reshaped, dim=1)
+            grad_mag = grad_mag.view(grad_mag.size(0), *([1] * (grad_input.dim() - 1)))
             grad_input = torch.where(grad_mag > 0, grad_input, redirected_grad_input)
 
         # Gradient wrt. approximate variable is always None.
