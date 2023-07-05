@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import, division, print_function
 
+import contextlib
 import warnings
 from typing import Callable, List, Optional, Sequence, Tuple, Union
 
@@ -25,7 +26,7 @@ from torch import nn
 from tqdm import tqdm
 
 from lucent.misc.io import show
-from lucent.optvis import objectives, param, transform
+from lucent.optvis import objectives, param, redirections, transform
 from lucent.optvis.hooks import ModelHook
 
 ObjectiveT = Union[str, Callable[[torch.Tensor], torch.Tensor]]
@@ -52,6 +53,7 @@ def render_vis(
     image_name: Optional[str] = None,
     show_inline: bool = False,
     fixed_image_size: Optional[int] = None,
+    redirected_activation_warmup: int = 16,
     iteration_callback: Optional[
         Callable[
             [
@@ -111,7 +113,20 @@ def render_vis(
 
     with ModelHook(
         model, image_f, objective_f.relevant_layers + additional_layers_of_interest
-    ) as hook:
+    ) as hook, contextlib.ExitStack() as stack:
+        if redirected_activation_warmup:
+            # We use an ExitStack to make sure that that replacement of the activation
+            # functions in torch with our redirect ones is undone when we exit
+            # the context.
+            stack.enter_context(redirections.redirect_relu())
+            stack.enter_context(redirections.redirect_gelu())
+
+            warnings.warn(
+                "Using redirected activations at the beginning of "
+                "optimization. This should not be used at the same time "
+                "as the legacy RedirectedReLU mechanism."
+            )
+
         if verbose:
             model(transform_f(image_f()))
             print("Initial loss: {:.3f}".format(objective_f(hook)))
@@ -160,6 +175,13 @@ def render_vis(
                             )
                         images.append(tensor_to_img_array(image_f()))
                         break
+
+                if i == redirected_activation_warmup:
+                    # Stop using redirected versions of activation functions after
+                    # redirected_activation_warmup iterations
+                    # (for redirected_activation_warmup = 16, this is a heuristic
+                    # from lucid).
+                    stack.close()
 
         except KeyboardInterrupt:
             print("Interrupted optimization at step {:d}.".format(i))

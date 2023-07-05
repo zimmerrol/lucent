@@ -16,10 +16,10 @@
 from __future__ import absolute_import, division, print_function
 
 import pytest
-
 import torch
-from lucent.optvis import render, param
+
 from lucent.modelzoo import inceptionv1
+from lucent.optvis import param, render
 
 
 @pytest.fixture(params=[True, False])
@@ -31,10 +31,53 @@ def inceptionv1_model(request):
     return model
 
 
+@pytest.fixture(params=[True, False])
+def gelu_dummy_model(request):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    class DummyModel(torch.nn.Sequential):
+        def __init__(self):
+            super(DummyModel, self).__init__()
+            self.mixed3b = torch.nn.Conv2d(3, 3, 3)
+            self.mixed3b_act = torch.nn.GELU()
+            self.mixed4a = torch.nn.Conv2d(3, 3, 3)
+            self.mixed4a_act = torch.nn.GELU()
+
+        def forward(self, input):
+            x = self.mixed3b(input)
+            x = self.mixed3b_act(x)
+            x = self.mixed4a(x)
+            x = self.mixed4a_act(x)
+            return x
+
+    model = DummyModel().to(device).eval()
+    if request.param:
+        model = torch.nn.DataParallel(model)
+    return model
+
+
 def test_render_vis(inceptionv1_model):
     thresholds = (1, 2)
     imgs = render.render_vis(
         inceptionv1_model, "mixed4a:0", thresholds=thresholds, show_image=False
+    )
+    assert len(imgs) == len(thresholds)
+    assert imgs[0].shape == (1, 128, 128, 3)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [pytest.lazy_fixture("gelu_dummy_model"), pytest.lazy_fixture("inceptionv1_model")],
+)
+@pytest.mark.parametrize("redirected_activation_warmup", [0, 16])
+def test_redirect_activations(model, redirected_activation_warmup):
+    thresholds = (1, 2)
+    imgs = render.render_vis(
+        model,
+        "mixed4a:0",
+        thresholds=thresholds,
+        show_image=False,
+        redirected_activation_warmup=redirected_activation_warmup,
     )
     assert len(imgs) == len(thresholds)
     assert imgs[0].shape == (1, 128, 128, 3)
