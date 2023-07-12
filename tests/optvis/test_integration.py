@@ -30,19 +30,26 @@ def inceptionv1_model():
 
 
 @pytest.mark.parametrize("decorrelate", [True, False])
-@pytest.mark.parametrize("fft", [True, False])
-def test_integration(inceptionv1_model, decorrelate, fft):
+@pytest.mark.parametrize("mode", ["pixel", "fft", "fft_maco"])
+def test_integration(inceptionv1_model, decorrelate, mode):
     obj = "mixed3a_1x1_pre_relu_conv:0"
-    param_f = lambda: param.image(224, decorrelate=decorrelate, fft=fft)
-    optimizer = lambda params: torch.optim.Adam(params, lr=0.1)
-    rendering = render.render_vis(
+    if mode == "fft_maco":
+        inner_kwargs = {"spectrum_magnitude": torch.fft.rfftn(
+            torch.randn(3, 224, 224)).abs()}
+    else:
+        inner_kwargs = {}
+    param_f = lambda: param.image(224, decorrelate=decorrelate, mode=mode,
+                                  **inner_kwargs)
+    optimizer_f = lambda params: torch.optim.Adam(params, lr=0.1)
+    images = render.render_vis(
         inceptionv1_model,
         obj,
         param_f,
-        optimizer=optimizer,
+        optimizer_f=optimizer_f,
         thresholds=(1, 2),
         verbose=True,
         show_inline=True,
     )
-    start_image, end_image = rendering
+    start_image, end_image = images[0], images[-1]
+
     assert (start_image != end_image).any()

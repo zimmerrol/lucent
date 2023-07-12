@@ -16,6 +16,7 @@
 from __future__ import absolute_import, division, print_function
 
 import pytest
+import torch
 
 from lucent.optvis import param
 
@@ -30,7 +31,23 @@ def test_pixel():
 def test_fft():
     shape = (1, 1, 1, 1)
     params, image_f = param.fft_image(shape)
-    print(params[0].shape)
-    print(image_f().shape)
     assert params[0].shape == (1, 1, 1, 1, 2)
     assert image_f().shape == shape
+
+
+def test_fft_maco():
+    shape = (1, 3, 32, 32)
+    spectrum_magnitude = torch.rand(shape[1], shape[2], shape[3] // 2 + 1)
+    params, image_f = param.fft_maco_image(
+        shape, spectrum_magnitude=spectrum_magnitude)
+    assert params[0].shape == (1, 3, shape[2], shape[3] // 2 + 1), params[0].shape
+    assert image_f().shape == shape
+    inferred_spectrum_magnitude = torch.fft.rfftn(
+        image_f(), s=(shape[2], shape[3]), norm="ortho").abs()[0]
+    # We need to ignore the first and last columns of the spectrum magnitude
+    # because of the way torch.fft.rfftn works. This should not be a relevant problem
+    # because the first and last columns of the spectrum are usually very small,
+    # especially for large images.
+    inferred_spectrum_magnitude[..., 0] = spectrum_magnitude[..., 0]
+    inferred_spectrum_magnitude[..., -1] = spectrum_magnitude[..., -1]
+    torch.testing.assert_close(inferred_spectrum_magnitude, spectrum_magnitude)

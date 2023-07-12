@@ -13,21 +13,25 @@
 # limitations under the License.
 # ==============================================================================
 
-"""High-level wrapper for paramaterizing images."""
+"""High-level wrapper for parameterizing images."""
 
 from __future__ import absolute_import, division, print_function
 
+from typing import Literal
+
 from lucent.optvis.param.color import to_valid_rgb
-from lucent.optvis.param.spatial import fft_image, pixel_image
+from lucent.optvis.param.spatial import fft_image, pixel_image, fft_maco_image
 
 
-def image(w, h=None, sd=None, batch=None, decorrelate=True, fft=True, channels=None):
+def image(w, h=None, batch=None, decorrelate=True,
+          mode: Literal["pixel", "fft", "maco_fft"] = "fft", channels=None,
+          **inner_kwargs):
     h = h or w
     batch = batch or 1
     ch = channels or 3
     shape = [batch, ch, h, w]
-    param_f = fft_image if fft else pixel_image
-    params, image_f = param_f(shape, sd=sd)
+    param_f = {"pixel": pixel_image, "fft": fft_image, "fft_maco": fft_maco_image}[mode]
+    params, image_f = param_f(shape, **inner_kwargs)
     if channels:
         output = to_valid_rgb(image_f, decorrelate=False)
     else:
