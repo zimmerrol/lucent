@@ -1,0 +1,20 @@
+torch >= 1.5.0
+torchvision
+kornia >= 0.6
+tqdm
+numpy
+ipython
+pillow
+future
+decorator
+scikit-learn
+pytest-mock
+coverage
+coveralls
+flake8==4.0.1
+click==8.0.1
+black==22.1.0
+pytest==7.1.1
+pytest-lazy-fixture==0.6.3
+mypy==1.0.1
+isort==5.10.1

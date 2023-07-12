@@ -41,6 +41,7 @@ def test_integration(inceptionv1_model, decorrelate, mode):
     param_f = lambda: param.image(224, decorrelate=decorrelate, mode=mode,
                                   **inner_kwargs)
     optimizer_f = lambda params: torch.optim.Adam(params, lr=0.1)
+
     images = render.render_vis(
         inceptionv1_model,
         obj,
