@@ -66,7 +66,7 @@ def render_vis(
         ]
     ] = None,
     additional_layers_of_interest: Optional[List[str]] = None,
-):
+) -> List[np.ndarray]:
     if param_f is None:
         param_f = lambda: param.image(128)
     # param_f is a function that should return two things

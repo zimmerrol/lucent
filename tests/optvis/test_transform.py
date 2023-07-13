@@ -64,11 +64,11 @@ def test_random_rotate_even_size():
         [[0, 1], [0, 1]],
         [[0, 1], [0, 1]],
     ]]).to(device)
-    assert torch.all(rotate(tensor).eq(torch.tensor([[
+    torch.testing.assert_allclose(rotate(tensor), torch.tensor([[
         [[1, 1], [0, 0]],
         [[1, 1], [0, 0]],
         [[1, 1], [0, 0]],
-    ]]).to(device)))
+    ]]).to(device))
 
 
 def test_random_rotate_odd_size():
@@ -78,11 +78,11 @@ def test_random_rotate_odd_size():
         [[0, 0, 1], [0, 0, 1], [0, 0, 1]],
         [[0, 0, 1], [0, 0, 1], [0, 0, 1]]
     ]]).to(device)
-    assert torch.all(rotate(tensor).eq(torch.tensor([[
+    torch.testing.assert_allclose(rotate(tensor), torch.tensor([[
         [[1, 1, 1], [0, 0, 0], [0, 0, 0]],
         [[1, 1, 1], [0, 0, 0], [0, 0, 0]],
         [[1, 1, 1], [0, 0, 0], [0, 0, 0]]
-    ]]).to(device)))
+    ]]).to(device))
 
 
 def test_normalize():

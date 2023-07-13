@@ -76,12 +76,12 @@ def test_fit_and_transform():
         channel_reducer.transform(acts_)
 
     # equivalence between fit_transform and fit then transform
-    channel_reducer = ChannelReducer(n_components=n_components)
+    channel_reducer = ChannelReducer(n_components=n_components, random_state=0)
     y1 = channel_reducer.fit_transform(acts)
-    channel_reducer = ChannelReducer(n_components=n_components)
+    channel_reducer = ChannelReducer(n_components=n_components, random_state=0)
     channel_reducer.fit(acts)
     y2 = channel_reducer.transform(acts)
-    assert np.allclose(y1, y2, atol=1e-2)
+    np.testing.assert_allclose(y1, y2, atol=1e-2)
 
 
 def test_call():
