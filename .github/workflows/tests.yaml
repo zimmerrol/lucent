@@ -22,22 +22,22 @@ jobs:
       with:
         ref: main
     - uses: actions/checkout@v3
-    - uses: actions/cache@v1
+    - uses: actions/cache@v1.2.1
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-    - uses: actions/cache@v1
+    - uses: actions/cache@v1.2.1
       with:
         path: ~/.cache/torch
         key: ${{ runner.os }}-cache-torch
-    - uses: actions/cache@v1
+    - uses: actions/cache@v1.2.1
       with:
         path: ~/.torch
         key: ${{ runner.os }}-torch
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v3.1.4
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install package
