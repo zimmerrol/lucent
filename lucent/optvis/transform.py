@@ -15,7 +15,7 @@
 
 from __future__ import absolute_import, division, print_function
 
-from typing import Callable, Sequence
+from typing import Callable, List, Sequence
 
 import kornia
 import numpy as np
@@ -28,13 +28,28 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 KORNIA_VERSION = kornia.__version__
 
 
-def jitter(d: int) -> Callable[[torch.Tensor], torch.Tensor]:
+def jitter(d: int, crop: bool = False) -> Callable[[torch.Tensor], torch.Tensor]:
     assert d > 1, "Jitter parameter d must be more than 1, currently {}".format(d)
 
     def inner(image_t: torch.Tensor) -> torch.Tensor:
+        sx = np.random.choice([-1, 1])
+        sy = np.random.choice([-1, 1])
         dx = np.random.choice(d)
         dy = np.random.choice(d)
-        return translate(image_t, torch.tensor([[dx, dy]]).float().to(device))
+        image_t = translate(
+            image_t, torch.tensor([[sx * dx, sy * dy]]).float().to(device))
+
+        if crop:
+            if sx == 1 and dx > 0:
+                image_t = image_t[:, :, :-dx, :]
+            else:
+                image_t = image_t[:, :, dx:, :]
+            if sy == 1 and dy > 0:
+                image_t = image_t[:, :, :, :-dy]
+            else:
+                image_t = image_t[:, :, :, dy:]
+
+        return image_t
 
     return inner
 
@@ -158,11 +173,12 @@ def preprocess_inceptionv1() -> Callable[[torch.Tensor], torch.Tensor]:
     return lambda x: x * 255 - 117
 
 
-standard_transforms = [
-    pad(12, mode="constant", constant_value=0.5),
-    jitter(8),
-    random_scale([1 + (i - 5) / 50.0 for i in range(11)]),
-    random_rotate(list(range(-10, 11)) + 5 * [0]),
-    jitter(4),
-    center_crop(224, 224)
-]
+def get_standard_transforms(size: int) -> List[ Callable[[torch.Tensor], torch.Tensor]]:
+    unit = size // 32
+    return [
+        pad(3 * unit, mode="constant", constant_value=0.5),
+        jitter(2 * unit),
+        random_scale([1 + (i - 5) / 50.0 for i in range(11)]),
+        random_rotate(list(range(-10, 11)) + 5 * [0]),
+        jitter(unit),
+    ]
