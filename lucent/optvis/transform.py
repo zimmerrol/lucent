@@ -173,7 +173,7 @@ def preprocess_inceptionv1() -> Callable[[torch.Tensor], torch.Tensor]:
     return lambda x: x * 255 - 117
 
 
-def get_standard_transforms(size: int) -> List[ Callable[[torch.Tensor], torch.Tensor]]:
+def get_standard_transforms(size: int) -> List[Callable[[torch.Tensor], torch.Tensor]]:
     unit = size // 32
     return [
         pad(3 * unit, mode="constant", constant_value=0.5),
