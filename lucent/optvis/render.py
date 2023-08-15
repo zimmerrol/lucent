@@ -74,12 +74,14 @@ def render_vis(
     # image_f - a function that returns an image as a tensor
     params, image_f = param_f()
 
+    image_shape = image_f().shape[2:]
+
     if optimizer_f is None:
         optimizer_f = lambda params: torch.optim.Adam(params, lr=5e-2)
     optimizer = optimizer_f(params)
 
     if transforms is None:
-        transforms = transform.standard_transforms
+        transforms = transform.get_standard_transforms(max(image_shape))
     transforms = transforms.copy()
 
     if preprocess:
