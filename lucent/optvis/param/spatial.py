@@ -109,6 +109,27 @@ def fft_maco_image(shape, spectrum_magnitude: torch.Tensor):
         image = torch.fft.irfftn(spectrum, s=(h, w), norm="ortho")
         image = image[:batch, :channels, :h, :w]
 
+        image = image - image.view(batch, -1).mean(1).view(batch, 1, 1, 1)
+        image = image / image.view(batch, -1).std(1).view(batch, 1, 1, 1)
+
         return image
 
     return [spectrum_phase], inner
+
+
+def fft_spectrum_magnitude(x: torch.Tensor) -> torch.Tensor:
+    """Get the magnitude of the spectrum of a tensor.
+
+    Args:
+        x: Input tensor. Must either be 3D and represent a single image or 4D and
+        represent a batch of images.
+    Returns:
+        The magnitude of the spectrum of the input image(s).
+    """
+    shape = x.shape
+    assert len(shape) in [3, 4], (
+        "Input tensor must be 3D or 4D and represent an image or batch of images")
+    spectrum = torch.fft.rfftn(x, s=(shape[-2], shape[-1]), norm="ortho")
+    spectrum_magnitude = spectrum.abs()
+
+    return spectrum_magnitude

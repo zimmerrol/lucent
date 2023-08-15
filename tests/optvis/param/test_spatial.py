@@ -19,6 +19,7 @@ import pytest
 import torch
 
 from lucent.optvis import param
+from lucent.optvis.param.spatial import fft_spectrum_magnitude
 
 
 def test_pixel():
@@ -42,8 +43,7 @@ def test_fft_maco():
         shape, spectrum_magnitude=spectrum_magnitude)
     assert params[0].shape == (1, 3, shape[2], shape[3] // 2 + 1), params[0].shape
     assert image_f().shape == shape
-    inferred_spectrum_magnitude = torch.fft.rfftn(
-        image_f(), s=(shape[2], shape[3]), norm="ortho").abs()[0]
+    inferred_spectrum_magnitude = fft_spectrum_magnitude(image_f())[0]
     # We need to ignore the first and last columns of the spectrum magnitude
     # because of the way torch.fft.rfftn works. This should not be a relevant problem
     # because the first and last columns of the spectrum are usually very small,
