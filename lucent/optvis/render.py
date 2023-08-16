@@ -41,6 +41,7 @@ class RenderInterrupt(Exception):
 def render_vis(
     model: nn.Module,
     objective_f: ObjectiveT,
+    target_image_shape: Optional[Tuple[int, int]],
     param_f: Optional[ParamT] = None,
     optimizer_f: Optional[OptimizerT] = None,
     transforms: Optional[List[Callable[[torch.Tensor], torch.Tensor]]] = None,
@@ -52,7 +53,6 @@ def render_vis(
     save_image: bool = False,
     image_name: Optional[str] = None,
     show_inline: bool = False,
-    fixed_image_size: Optional[int] = None,
     redirected_activation_warmup: int = 16,
     iteration_callback: Optional[
         Callable[
@@ -81,7 +81,7 @@ def render_vis(
     optimizer = optimizer_f(params)
 
     if transforms is None:
-        transforms = transform.get_standard_transforms(max(image_shape))
+        transforms = transform.get_standard_transforms(image_shape, target_image_shape)
     transforms = transforms.copy()
 
     if preprocess:
@@ -92,19 +92,6 @@ def render_vis(
             # Assume we use normalization for torchvision.models
             # See https://pytorch.org/docs/stable/torchvision/models.html
             transforms.append(transform.normalize())
-
-    # Upsample images smaller than 224
-    image_shape = image_f().shape
-    if fixed_image_size is not None:
-        new_size = fixed_image_size
-    elif image_shape[2] < 224 or image_shape[3] < 224:
-        new_size = 224
-    else:
-        new_size = None
-    if new_size:
-        transforms.append(
-            torch.nn.Upsample(size=new_size, mode="bilinear", align_corners=True)
-        )
 
     transform_f = transform.compose(transforms)
 
