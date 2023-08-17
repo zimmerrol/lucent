@@ -7,24 +7,38 @@ import numpy as np
 __all__ = ["redirect_relu", "redirect_gelu"]
 
 
-@contextlib.contextmanager
-def redirect_relu():
+class ReLURedirectionGenerator:
     """Redirects the torch.nn.functional.relu function to our custom one."""
-    setattr(torch.nn.functional, "unredirected_relu", torch.nn.functional.relu)
-    torch.nn.functional.relu = _redirected_relu
-    yield
-    torch.nn.functional.relu = getattr(torch.nn.functional, "unredirected_relu")
-    delattr(torch.nn.functional, "unredirected_relu")
+
+    def __enter__(self):
+        setattr(torch.nn.functional, "unredirected_relu", torch.nn.functional.relu)
+        torch.nn.functional.relu = _redirected_relu
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        torch.nn.functional.relu = getattr(torch.nn.functional, "unredirected_relu")
+        delattr(torch.nn.functional, "unredirected_relu")
 
 
-@contextlib.contextmanager
-def redirect_gelu():
+class GELURedirectionGenerator:
     """Redirects the torch.nn.functional.gelu function to our custom one."""
-    setattr(torch.nn.functional, "unredirected_gelu", torch.nn.functional.gelu)
-    torch.nn.functional.gelu = _redirected_gelu
-    yield
-    torch.nn.functional.gelu = getattr(torch.nn.functional, "unredirected_gelu")
-    delattr(torch.nn.functional, "unredirected_gelu")
+
+    def __enter__(self):
+        setattr(torch.nn.functional, "unredirected_gelu", torch.nn.functional.gelu)
+        torch.nn.functional.gelu = _redirected_gelu
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        torch.nn.functional.gelu = getattr(torch.nn.functional, "unredirected_gelu")
+        delattr(torch.nn.functional, "unredirected_gelu")
+
+
+def redirect_relu() -> ReLURedirectionGenerator:
+    """Redirects the torch.nn.functional.relu function to our custom one."""
+    return ReLURedirectionGenerator()
+
+
+def redirect_gelu() -> GELURedirectionGenerator:
+    """Redirects the torch.nn.functional.gelu function to our custom one."""
+    return GELURedirectionGenerator()
 
 
 class RedirectedReLUFunction(torch.autograd.Function):
@@ -59,7 +73,7 @@ class RedirectedReLUFunction(torch.autograd.Function):
             )
 
             # Only use redirected gradient where nothing got through original gradient.
-            grad_input_reshaped = grad_input.view(grad_input.size(0), -1)
+            grad_input_reshaped = grad_input.reshape(grad_input.size(0), -1)
             grad_mag = torch.norm(grad_input_reshaped, dim=1)
             grad_mag = grad_mag.view(grad_mag.size(0), *([1] * (grad_input.dim() - 1)))
             grad_input = torch.where(grad_mag > 0, grad_input, redirected_grad_input)
@@ -107,7 +121,7 @@ class RedirectedGELUFunction(torch.autograd.Function):
             )
 
             # Only use redirected gradient where nothing got through original gradient.
-            grad_input_reshaped = grad_input.view(grad_input.size(0), -1)
+            grad_input_reshaped = grad_input.reshape(grad_input.size(0), -1)
             grad_mag = torch.norm(grad_input_reshaped, dim=1)
             grad_mag = grad_mag.view(grad_mag.size(0), *([1] * (grad_input.dim() - 1)))
             grad_input = torch.where(grad_mag > 0, grad_input, redirected_grad_input)
