@@ -7,24 +7,38 @@ import numpy as np
 __all__ = ["redirect_relu", "redirect_gelu"]
 
 
-@contextlib.contextmanager
-def redirect_relu():
+class ReLURedirectionGenerator:
     """Redirects the torch.nn.functional.relu function to our custom one."""
-    setattr(torch.nn.functional, "unredirected_relu", torch.nn.functional.relu)
-    torch.nn.functional.relu = _redirected_relu
-    yield
-    torch.nn.functional.relu = getattr(torch.nn.functional, "unredirected_relu")
-    delattr(torch.nn.functional, "unredirected_relu")
+
+    def __enter__(self):
+        setattr(torch.nn.functional, "unredirected_relu", torch.nn.functional.relu)
+        torch.nn.functional.relu = _redirected_relu
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        torch.nn.functional.relu = getattr(torch.nn.functional, "unredirected_relu")
+        delattr(torch.nn.functional, "unredirected_relu")
 
 
-@contextlib.contextmanager
-def redirect_gelu():
+class GELURedirectionGenerator:
     """Redirects the torch.nn.functional.gelu function to our custom one."""
-    setattr(torch.nn.functional, "unredirected_gelu", torch.nn.functional.gelu)
-    torch.nn.functional.gelu = _redirected_gelu
-    yield
-    torch.nn.functional.gelu = getattr(torch.nn.functional, "unredirected_gelu")
-    delattr(torch.nn.functional, "unredirected_gelu")
+
+    def __enter__(self):
+        setattr(torch.nn.functional, "unredirected_gelu", torch.nn.functional.gelu)
+        torch.nn.functional.gelu = _redirected_gelu
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        torch.nn.functional.gelu = getattr(torch.nn.functional, "unredirected_gelu")
+        delattr(torch.nn.functional, "unredirected_gelu")
+
+
+def redirect_relu() -> ReLURedirectionGenerator:
+    """Redirects the torch.nn.functional.relu function to our custom one."""
+    return ReLURedirectionGenerator()
+
+
+def redirect_gelu() -> GELURedirectionGenerator:
+    """Redirects the torch.nn.functional.gelu function to our custom one."""
+    return GELURedirectionGenerator()
 
 
 class RedirectedReLUFunction(torch.autograd.Function):
