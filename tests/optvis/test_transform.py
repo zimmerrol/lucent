@@ -45,9 +45,9 @@ def test_random_scale_down():
     scale = transform.random_scale([0.33])
     tensor = torch.ones(1, 3, 3, 3).to(device)
     assert torch.all(scale(tensor).eq(torch.tensor([[
-        [[0, 0, 0], [0, 1, 0], [0, 0, 0]],
-        [[0, 0, 0], [0, 1, 0], [0, 0, 0]],
-        [[0, 0, 0], [0, 1, 0], [0, 0, 0]]
+        [[.5, .5, .5], [.5, 1, .5], [.5, .5, .5]],
+        [[.5, .5, .5], [.5, 1, .5], [.5, .5, .5]],
+        [[.5, .5, .5], [.5, 1, .5], [.5, .5, .5]]
     ]]).to(device)))
 
 
