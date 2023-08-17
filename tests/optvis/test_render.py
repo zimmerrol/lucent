@@ -59,7 +59,8 @@ def gelu_dummy_model(request):
 def test_render_vis(inceptionv1_model):
     thresholds = (1, 2)
     imgs = render.render_vis(
-        inceptionv1_model, "mixed4a:0", thresholds=thresholds, show_image=False
+        inceptionv1_model, "mixed4a:0", (224, 224),
+        thresholds=thresholds, show_image=False
     )
     assert len(imgs) == len(thresholds)
     assert imgs[0].shape == (1, 128, 128, 3)
@@ -75,6 +76,7 @@ def test_redirect_activations(model, redirected_activation_warmup):
     imgs = render.render_vis(
         model,
         "mixed4a:0",
+        (224, 224),
         thresholds=thresholds,
         show_image=False,
         redirected_activation_warmup=redirected_activation_warmup,
@@ -91,6 +93,7 @@ def test_interrupt_render_vis(inceptionv1_model, capfd):
     imgs = render.render_vis(
         inceptionv1_model,
         "mixed4a:0",
+        (224, 224),
         thresholds=thresholds,
         show_image=False,
         iteration_callback=iteration_callback,

@@ -1008,7 +1008,7 @@ class InceptionV1(nn.Module):
             ceil_mode=False,
             count_include_pad=False,
         )
-        avgpool0_reshape = torch.reshape(input=avgpool0, shape=(-1, 1024))
+        avgpool0_reshape = torch.reshape(input=avgpool0, shape=(len(avgpool0), 1024))
         softmax2_pre_activation_matmul = self.softmax2_pre_activation_matmul(
             avgpool0_reshape
         )
