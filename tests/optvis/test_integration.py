@@ -45,6 +45,7 @@ def test_integration(inceptionv1_model, decorrelate, mode):
     images = render.render_vis(
         inceptionv1_model,
         obj,
+        (224, 224),
         param_f,
         optimizer_f=optimizer_f,
         thresholds=(1, 2),
