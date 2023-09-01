@@ -40,7 +40,7 @@ from lucent.optvis.objectives_util import (
     _T_handle_batch,
 )
 
-ObjectiveReturnT = Union[torch.Tensor, Tuple[torch.Tensor, Sequence[torch.Tensor]]]
+ObjectiveReturnT = Union[torch.Tensor, Tuple[torch.Tensor, List[torch.Tensor]]]
 ObjectiveT = Callable[[nn.Module, bool], ObjectiveReturnT]
 WrapObjectiveInnerT = Tuple[Callable[[nn.Module], torch.Tensor], List[str]]
 
@@ -200,8 +200,14 @@ class Objective:
                 inner_left = self(model, return_sub_objectives)
                 inner_right = other(model, return_sub_objectives)
                 if not return_sub_objectives:
+                    inner_left = typing.cast(torch.Tensor, inner_left)
+                    inner_right = typing.cast(torch.Tensor, inner_right)
                     return inner_left * inner_right
                 else:
+                    inner_left = typing.cast(
+                        Tuple[torch.Tensor, List[torch.Tensor]], inner_left)
+                    inner_right = typing.cast(
+                        Tuple[torch.Tensor, List[torch.Tensor]], inner_right)
                     return (
                         inner_left[0] * inner_right[0],
                         inner_left[1]
@@ -238,8 +244,14 @@ class Objective:
                 inner_left = self(model, return_sub_objectives)
                 inner_right = other(model, return_sub_objectives)
                 if not return_sub_objectives:
+                    inner_left = typing.cast(torch.Tensor, inner_left)
+                    inner_right = typing.cast(torch.Tensor, inner_right)
                     return inner_left / inner_right
                 else:
+                    inner_left = typing.cast(
+                        Tuple[torch.Tensor, List[torch.Tensor]], inner_left)
+                    inner_right = typing.cast(
+                        Tuple[torch.Tensor, List[torch.Tensor]], inner_right)
                     return (
                         inner_left[0] / inner_right[0],
                         inner_left[1]
@@ -682,7 +694,7 @@ def diversity(
 
 
 def as_objective(
-    obj: Union[str, Objective, Callable[[nn.Module], torch.Tensor]]
+    obj: Union[str, Objective, ObjectiveT]
 ) -> Objective:
     """Convert obj into Objective class.
 
@@ -698,7 +710,7 @@ def as_objective(
     if isinstance(obj, Objective):
         return obj
     if callable(obj):
-        obj = typing.cast(Callable[[nn.Module], torch.Tensor], obj)
+        obj = typing.cast(ObjectiveT, obj)
         return wrap_objective()(func=lambda *args, **kwargs: (obj, ["all"]))
     if isinstance(obj, str):
         layer, chn_s = obj.split(":")

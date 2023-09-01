@@ -30,8 +30,15 @@ def image(w, h=None, batch=None, decorrelate=True,
     batch = batch or 1
     ch = channels or 3
     shape = [batch, ch, h, w]
-    param_f = {"pixel": pixel_image, "fft": fft_image, "fft_maco": fft_maco_image}[mode]
-    params, image_f = param_f(shape, **inner_kwargs)
+    if mode == "fft_maco":
+        params, image_f = fft_maco_image(shape, **inner_kwargs)
+    elif mode == "fft":
+        params, image_f = fft_image(shape, **inner_kwargs)
+    elif mode == "pixel":
+        params, image_f = pixel_image(shape, **inner_kwargs)
+    else:
+        raise ValueError(f"Unknown mode: {mode}.")
+
     if channels:
         output = to_valid_rgb(image_f, decorrelate=False)
     else:
