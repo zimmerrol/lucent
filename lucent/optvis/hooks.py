@@ -1,5 +1,5 @@
 from types import TracebackType
-from typing import Callable, Dict, Optional, Sequence, Type, Any
+from typing import Any, Callable, Dict, Optional, Sequence, Type
 
 import torch
 from torch import nn
@@ -78,13 +78,15 @@ class ModelHook:
             elif layer == "labels":
                 out = list(self.features.values())[-1].features
             else:
-                assert (
-                    layer in self.features
-                ), f"Invalid layer {layer}. Retrieve the list of layers with `lucent.modelzoo.util.get_model_layers(model)`."
+                assert layer in self.features, (
+                    f"Invalid layer {layer}. Retrieve the list of layers with "
+                    "`lucent.modelzoo.util.get_model_layers(model)`."
+                )
                 out = self.features[layer].features
-            assert (
-                out is not None
-            ), "There are no saved feature maps. Make sure to put the model in eval mode, like so: `model.to(device).eval()`. See README for example."
+            assert out is not None, (
+                "There are no saved feature maps. Make sure to put the model in eval "
+                "mode, like so: `model.to(device).eval()`. See README for example."
+            )
             return out
 
         return hook

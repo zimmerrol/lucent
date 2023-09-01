@@ -20,12 +20,18 @@ from __future__ import absolute_import, division, print_function
 from typing import Literal
 
 from lucent.optvis.param.color import to_valid_rgb
-from lucent.optvis.param.spatial import fft_image, pixel_image, fft_maco_image
+from lucent.optvis.param.spatial import fft_image, fft_maco_image, pixel_image
 
 
-def image(w, h=None, batch=None, decorrelate=True,
-          mode: Literal["pixel", "fft", "maco_fft"] = "fft", channels=None,
-          **inner_kwargs):
+def image(
+    w,
+    h=None,
+    batch=None,
+    decorrelate=True,
+    mode: Literal["pixel", "fft", "maco_fft"] = "fft",
+    channels=None,
+    **inner_kwargs,
+):
     h = h or w
     batch = batch or 1
     ch = channels or 3

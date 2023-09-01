@@ -42,8 +42,9 @@ model_urls = {
 
 
 class InceptionV1(nn.Module):
-    def __init__(self, pretrained=False, progress=True,
-                 use_legacy_relu_redirection: bool = False):
+    def __init__(
+        self, pretrained=False, progress=True, use_legacy_relu_redirection: bool = False
+    ):
         super(InceptionV1, self).__init__()
         self.conv2d0_pre_relu_conv = nn.Conv2d(
             in_channels=3,
