@@ -29,7 +29,7 @@ from lucent.misc.io import show
 from lucent.optvis import objectives, param, redirections, transform
 from lucent.optvis.hooks import ModelHook
 
-ObjectiveT = Union[str, Callable[[torch.Tensor], torch.Tensor]]
+ObjectiveT = Union[str, objectives.ObjectiveT, objectives.Objective]
 ParamsT = Callable[[], Tuple[Sequence[torch.Tensor], Callable[[], torch.Tensor]]]
 OptimizerT = Callable[[Sequence[torch.Tensor]], torch.optim.Optimizer]
 
@@ -71,19 +71,21 @@ def render_vis(
 ) -> Union[List[np.ndarray], Tuple[List[np.ndarray], List[np.ndarray]]]:
     if params_f is None:
         params_f = lambda: param.image(128)
-    # params_f is a function that should return two things
-    # params - parameters to update, which we pass to the optimizer
-    # image_f - a function that returns an image as a tensor
+    # params_f is a function that should return two things:
+    # (1) params,  parameters to update, which we pass to the optimizer
+    # (2) image_f, a function that returns an image as a tensor
     params, image_f = params_f()
 
-    image_shape = image_f().shape[-2:]
+    image_shape = image_f().shape
 
     if optimizer_f is None:
-        optimizer_f = lambda params: torch.optim.Adam(params, lr=5e-2)
+        optimizer_f = lambda params: torch.optim.Adam(params, lr=5e-2)  # noqa: E731
     optimizer = optimizer_f(params)
 
     if transforms is None:
-        transforms = transform.get_standard_transforms(image_shape, target_image_shape)
+        transforms = transform.get_standard_transforms(
+            (image_shape[-2], image_shape[-1]), target_image_shape
+        )
     transforms = transforms.copy()
 
     if preprocess:
@@ -151,7 +153,9 @@ def render_vis(
 
         if verbose:
             model(transform_f(image_f()))
-            print("Initial loss: {:.3f}".format(objective_f(hook)))
+            print(
+                "Initial loss: {:.3f}".format(objective_f(hook, False))
+            )  # type: ignore
 
         images: List[np.ndarray] = []
         image_gradient_masks: List[np.ndarray] = []
@@ -197,7 +201,7 @@ def render_vis(
                     if return_gradient_masks:
                         image_gradient_masks.append(image_gradient_mask)  # type: ignore
                     if verbose:
-                        print("Loss at step {}: {:.3f}".format(i, objective_f(hook)))
+                        print("Loss at step {}: {:.3f}".format(i, loss.item()))
                         if show_inline:
                             show(potentially_masked_image)
                     images.append(potentially_masked_image)
@@ -212,9 +216,7 @@ def render_vis(
                         # when the loss is below a certain threshold.
                         print("Interrupted optimization at step {:d}.".format(i))
                         if verbose:
-                            print(
-                                "Loss at step {}: {:.3f}".format(i, objective_f(hook))
-                            )
+                            print("Loss at step {}: {:.3f}".format(i, loss.item()))
                         images.append(_get_potentially_masked_image_and_mask(image)[0])
                         break
 
@@ -228,7 +230,9 @@ def render_vis(
         except KeyboardInterrupt:
             print("Interrupted optimization at step {:d}.".format(i))
             if verbose:
-                print("Loss at step {}: {:.3f}".format(i, objective_f(hook)))
+                print(
+                    "Loss at step {}: {:.3f}".format(i, objective_f(hook, False))
+                )  # type: ignore
             (
                 potentially_masked_image,
                 image_gradient_mask,

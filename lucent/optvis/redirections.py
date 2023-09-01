@@ -1,8 +1,5 @@
-import contextlib
-
-import torch
 import numpy as np
-
+import torch
 
 __all__ = ["redirect_relu", "redirect_gelu"]
 
@@ -49,7 +46,7 @@ class RedirectedReLUFunction(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, input, inplace: bool = False):
+    def forward(ctx, input, inplace: bool = False):  # type: ignore
         ctx.save_for_backward(input)
         if not hasattr(torch.nn.functional, "unredirected_relu"):
             raise NotImplementedError(
@@ -88,7 +85,7 @@ class RedirectedGELUFunction(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, input, approximate: str = "none"):
+    def forward(ctx, input, approximate: str = "none"):  # type: ignore
         ctx.save_for_backward(input)
         if approximate != "none":
             raise NotImplementedError("approximate mode not implemented for gelu.")

@@ -43,7 +43,7 @@ def hue_to_rgb(ang, warp=True):
     if warp:
         # warping the angle away from the primary colors (RGB)
         # helps make equally-spaced angles more visually distinguishable
-        adj = lambda x: math.sin(x * math.pi / 2)
+        adj = lambda x: math.sin(x * math.pi / 2)  # noqa: E731
         if n % 2 == 0:
             D = adj(D)
         else:

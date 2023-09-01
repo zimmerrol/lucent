@@ -15,7 +15,7 @@
 
 from __future__ import absolute_import, division, print_function
 
-from typing import Callable, List, Sequence, Tuple, Optional
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import kornia
 import numpy as np

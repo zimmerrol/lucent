@@ -1,5 +1,5 @@
 from types import TracebackType
-from typing import Callable, Dict, Optional, Sequence, Type
+from typing import Any, Callable, Dict, Optional, Sequence, Type
 
 import torch
 from torch import nn
@@ -7,7 +7,11 @@ from torch import nn
 
 class ModuleHook:
     def __init__(self, module: nn.Module):
-        self.hook = module.register_forward_hook(self.hook_fn)
+        def hook_fn(m: nn.Module, args: Any, output: torch.Tensor):
+            device = output.device
+            self._features[str(device)] = output
+
+        self.hook = module.register_forward_hook(hook_fn)
         self._features: Dict[str, torch.Tensor] = dict()
 
     @property
@@ -19,10 +23,6 @@ class ModuleHook:
             return self._features[keys[0]]
         else:
             return torch.nn.parallel.gather([self._features[k] for k in keys], keys[0])
-
-    def hook_fn(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
-        device = output.device
-        self._features[str(device)] = output
 
     def close(self):
         self.hook.remove()
@@ -78,13 +78,15 @@ class ModelHook:
             elif layer == "labels":
                 out = list(self.features.values())[-1].features
             else:
-                assert (
-                    layer in self.features
-                ), f"Invalid layer {layer}. Retrieve the list of layers with `lucent.modelzoo.util.get_model_layers(model)`."
+                assert layer in self.features, (
+                    f"Invalid layer {layer}. Retrieve the list of layers with "
+                    "`lucent.modelzoo.util.get_model_layers(model)`."
+                )
                 out = self.features[layer].features
-            assert (
-                out is not None
-            ), "There are no saved feature maps. Make sure to put the model in eval mode, like so: `model.to(device).eval()`. See README for example."
+            assert out is not None, (
+                "There are no saved feature maps. Make sure to put the model in eval "
+                "mode, like so: `model.to(device).eval()`. See README for example."
+            )
             return out
 
         return hook

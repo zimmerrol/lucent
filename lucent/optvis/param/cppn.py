@@ -35,7 +35,6 @@ def cppn(
     activation_fn=CompositeActivation,
     normalize=False,
 ):
-
     r = 3**0.5
 
     coord_range = torch.linspace(-r, r, size)

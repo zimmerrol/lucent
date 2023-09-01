@@ -3,10 +3,12 @@ Copyright 2020 Binxu Wang
 Use GAN as prior to do feature visualization.
 This method is inspired by the work
     Nguyen, A., Dosovitskiy, A., Yosinski, J., Brox, T., & Clune, J.
-    Synthesizing the preferred inputs for neurons in neural networks via deep generator networks.(2016) NIPS
+    Synthesizing the preferred inputs for neurons in neural networks via deep
+    generator networks.(2016) NIPS
 
 The GAN model is imported from
-    A. Dosovitskiy, T. Brox `Generating Images with Perceptual Similarity Metrics based on Deep Networks` (2016), NIPS.
+    A. Dosovitskiy, T. Brox `Generating Images with Perceptual Similarity Metrics
+    based on Deep Networks` (2016), NIPS.
     https://lmb.informatik.uni-freiburg.de/people/dosovits/code.html
 the author translated the models (pool5-fc8) into pytorch and hosts the weights online.
 
@@ -17,13 +19,15 @@ import shutil
 import tempfile
 from collections import OrderedDict
 from os.path import join
-import requests
 
+import requests
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-load_urls = True  # If you have downloaded the pt files you can set the netsdir and set load_urls as False.
+# If you have downloaded the pt files you can set the netsdir and set
+# load_urls as False.
+load_urls = True
 netsdir = "~"  # the place you put the networks
 
 model_urls = {
@@ -53,7 +57,7 @@ def download_url_to_file(url, dst, progress=True):
             content_length = int(response.headers["Content-Length"])
             if content_length > 0:
                 file_size = int(content_length[0])
-        except:
+        except:  # noqa: E722
             file_size = None
     else:
         file_size = None

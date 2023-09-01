@@ -18,14 +18,37 @@
 from __future__ import absolute_import, division, print_function
 
 import base64
+import logging
 from io import BytesIO
+from typing import Literal
 
-# import logging
 import numpy as np
 import PIL.Image
 
-# create logger with module name, e.g. lucid.misc.io.array_to_image
-# log = logging.getLogger(__name__)
+ENABLE_LOGGING = False
+
+
+def get_logger():
+    """Create logger with module name, e.g. lucid.misc.io.array_to_image."""
+    if not ENABLE_LOGGING:
+        return None
+
+    if not hasattr(get_logger, "logger"):
+        get_logger.logger = logging.getLogger(__name__)
+    return get_logger.logger
+
+
+def potentially_log(mode: Literal["debug", "info"], *args, **kwargs):
+    """Log if logging is enabled.
+
+    Args:
+        mode: one of "debug" or "info".
+        *args: passed to logger.debug or logger.info.
+        **kwargs: passed to logger.debug or logger.info.
+    """
+    logger = get_logger()
+    if logger:
+        getattr(logger, mode)(*args, **kwargs)
 
 
 def _normalize_array(array, domain=(0, 1)):
@@ -53,13 +76,13 @@ def _normalize_array(array, domain=(0, 1)):
     low, high = np.min(array), np.max(array)
     if domain is None:
         message = "No domain specified, normalizing from measured (~%.2f, ~%.2f)"
-        # log.debug(message, low, high)
+        potentially_log("debug", message, low, high)
         domain = (low, high)
 
     # clip values if domain was specified and array contains values outside of it
     if low < domain[0] or high > domain[1]:
         message = "Clipping domain from (~{:.2f}, ~{:.2f}) to (~{:.2f}, ~{:.2f})."
-        # log.info(message.format(low, high, domain[0], domain[1]))
+        potentially_log("info", message.format(low, high, domain[0], domain[1]))
         array = array.clip(*domain)
 
     min_value, max_value = np.iinfo(np.uint8).min, np.iinfo(np.uint8).max  # 0, 255
@@ -68,12 +91,16 @@ def _normalize_array(array, domain=(0, 1)):
         offset = domain[0]
         if offset != 0:
             array -= offset
-            # log.debug("Converting inexact array by subtracting -%.2f.", offset)
+            potentially_log(
+                "debug", "Converting inexact array by subtracting -%.2f.", offset
+            )
         if domain[0] != domain[1]:
             scalar = max_value / (domain[1] - domain[0])
             if scalar != 1:
                 array *= scalar
-                # log.debug("Converting inexact array by scaling by %.2f.", scalar)
+                potentially_log(
+                    "debug", "Converting inexact array by scaling by %.2f.", scalar
+                )
 
     return array.clip(min_value, max_value).astype(np.uint8)
 

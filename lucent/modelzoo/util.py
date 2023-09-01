@@ -32,7 +32,8 @@ def get_model_layers(
         model: Model to get layer names for.
         get_layer_representation: Get layer representations and not just layer names.
     Returns:
-        If get_layer_representation is True, return a OrderedDict of layer names, layer representation
+        If get_layer_representation is True, return a OrderedDict of layer names,
+            layer representation.
         string pair. If it's False, just return a list of layer names
     """
     layer_name_representations = OrderedDict()

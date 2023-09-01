@@ -71,7 +71,8 @@ def fft_image(shape, sd=None, decay_power=1):
                 scaled_spectrum_t, 2, normalized=True, signal_sizes=(h, w)
             )
         image = image[:batch, :channels, :h, :w]
-        magic = 4.0  # Magic constant from Lucid library; increasing this seems to reduce saturation
+        # Magic constant from Lucid library; increasing this seems to reduce saturation.
+        magic = 4.0
         image = image / magic
         return image
 
@@ -82,20 +83,17 @@ def fft_maco_image(shape, spectrum_magnitude: torch.Tensor):
     batch, channels, h, w = shape
     freqs = rfft2d_freqs(h, w)
 
-    init_phase_shape = (
-        (batch, channels) + freqs.shape
-    )
+    init_phase_shape = (batch, channels) + freqs.shape
 
     assert spectrum_magnitude.ndim == 3
     spectrum_magnitude = spectrum_magnitude[None].repeat(batch, 1, 1, 1)
 
     assert spectrum_magnitude.shape == init_phase_shape, (
         f"Shape of magnitude {spectrum_magnitude.shape} does not "
-        f"match phase {init_phase_shape}.")
-
-    spectrum_phase = (
-        (torch.rand(init_phase_shape) * np.pi).to(device)
+        f"match phase {init_phase_shape}."
     )
+
+    spectrum_phase = (torch.rand(init_phase_shape) * np.pi).to(device)
 
     spectrum_phase = spectrum_phase.requires_grad_(True)
 
