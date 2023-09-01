@@ -42,12 +42,12 @@ def render_vis(
     model: nn.Module,
     objective_f: ObjectiveT,
     target_image_shape: Optional[Tuple[int, int]],
+    preprocess: Optional[Union[str, Callable[[torch.Tensor], torch.Tensor]]],
     params_f: Optional[ParamsT] = None,
     optimizer_f: Optional[OptimizerT] = None,
     transforms: Optional[List[Callable[[torch.Tensor], torch.Tensor]]] = None,
     thresholds: Sequence[int] = (512,),
     verbose: bool = False,
-    preprocess: bool = True,
     progress: bool = True,
     show_image: bool = True,
     save_image: bool = False,
@@ -87,13 +87,17 @@ def render_vis(
     transforms = transforms.copy()
 
     if preprocess:
-        if model._get_name() == "InceptionV1":
+        if preprocess == "inceptionv1":
             # Original Tensorflow InceptionV1 takes input range [-117, 138]
             transforms.append(transform.preprocess_inceptionv1())
-        else:
+        elif preprocess == "torchvision":
             # Assume we use normalization for torchvision.models
-            # See https://pytorch.org/docs/stable/torchvision/models.html
+            # See https://pytorch.org/vision/stable/models.html
             transforms.append(transform.normalize())
+        elif callable(preprocess):
+            transforms.append(preprocess)
+        else:
+            raise ValueError("Unknown format for preprocess: {}".format(preprocess))
 
     transform_f = transform.compose(transforms)
 
