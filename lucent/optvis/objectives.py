@@ -198,6 +198,7 @@ class Objective:
                     inner_right = typing.cast(
                         Tuple[torch.Tensor, List[torch.Tensor]], inner_right
                     )
+
                     return (
                         inner_left[0] * inner_right[0],
                         inner_left[1]
@@ -244,6 +245,7 @@ class Objective:
                     inner_right = typing.cast(
                         Tuple[torch.Tensor, List[torch.Tensor]], inner_right
                     )
+
                     return (
                         inner_left[0] / inner_right[0],
                         inner_left[1]
