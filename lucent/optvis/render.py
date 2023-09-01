@@ -30,9 +30,7 @@ from lucent.optvis import objectives, param, redirections, transform
 from lucent.optvis.hooks import ModelHook
 
 ObjectiveT = Union[str, objectives.ObjectiveT, objectives.Objective]
-ParamT = Callable[[], Tuple[
-    List[torch.Tensor], Callable[[], torch.Tensor]
-]]
+ParamT = Callable[[], Tuple[List[torch.Tensor], Callable[[], torch.Tensor]]]
 OptimizerT = Callable[[Sequence[torch.Tensor]], torch.optim.Optimizer]
 
 
@@ -70,7 +68,7 @@ def render_vis(
     additional_layers_of_interest: Optional[List[str]] = None,
 ) -> List[np.ndarray]:
     if param_f is None:
-        param_f = lambda: param.image(128)
+        param_f = lambda: param.image(128)  # noqa: E731
     # params_f is a function that should return two things:
     # (1) params,  parameters to update, which we pass to the optimizer
     # (2) image_f, a function that returns an image as a tensor
@@ -79,12 +77,13 @@ def render_vis(
     image_shape = image_f().shape
 
     if optimizer_f is None:
-        optimizer_f = lambda params: torch.optim.Adam(params, lr=5e-2)
+        optimizer_f = lambda params: torch.optim.Adam(params, lr=5e-2)  # noqa: E731
     optimizer = optimizer_f(params)
 
     if transforms is None:
         transforms = transform.get_standard_transforms(
-            (image_shape[-2], image_shape[-1]), target_image_shape)
+            (image_shape[-2], image_shape[-1]), target_image_shape
+        )
     transforms = transforms.copy()
 
     if preprocess:
@@ -125,8 +124,9 @@ def render_vis(
 
         if verbose:
             model(transform_f(image_f()))
-            print("Initial loss: {:.3f}".format(
-                objective_f(hook, False)))  # type: ignore
+            print(
+                "Initial loss: {:.3f}".format(objective_f(hook, False))
+            )  # type: ignore
 
         images = []
         try:
@@ -167,9 +167,7 @@ def render_vis(
                         # when the loss is below a certain threshold.
                         print("Interrupted optimization at step {:d}.".format(i))
                         if verbose:
-                            print(
-                                "Loss at step {}: {:.3f}".format(i, loss.item())
-                            )
+                            print("Loss at step {}: {:.3f}".format(i, loss.item()))
                         images.append(tensor_to_img_array(image_f()))
                         break
 
@@ -183,8 +181,9 @@ def render_vis(
         except KeyboardInterrupt:
             print("Interrupted optimization at step {:d}.".format(i))
             if verbose:
-                print("Loss at step {}: {:.3f}".format(
-                    i, objective_f(hook, False)))  # type: ignore
+                print(
+                    "Loss at step {}: {:.3f}".format(i, objective_f(hook, False))
+                )  # type: ignore
             images.append(tensor_to_img_array(image_f()))
 
     if save_image:

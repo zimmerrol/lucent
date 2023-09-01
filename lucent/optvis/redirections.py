@@ -1,8 +1,5 @@
-import contextlib
-
-import torch
 import numpy as np
-
+import torch
 
 __all__ = ["redirect_relu", "redirect_gelu"]
 

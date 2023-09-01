@@ -87,7 +87,8 @@ class LegacyRedirectedReluLayer(nn.Module):
         warnings.warn(
             "LegacyRedirectedReluLayer is deprecated as this is not matching lucid's "
             "redirection mechanism. Instead, use the redirected_activation_warmup "
-            "argument.")
+            "argument."
+        )
 
     def forward(self, tensor):
         return LegacyRedirectedReLU.apply(tensor)

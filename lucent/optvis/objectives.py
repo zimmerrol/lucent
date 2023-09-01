@@ -16,17 +16,8 @@
 from __future__ import absolute_import, division, print_function
 
 import typing
-from typing import (
-    Any,
-    Callable,
-    Literal,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-    List,
-    Protocol,
-)
+from typing import (Any, Callable, List, Literal, Optional, Protocol, Sequence,
+                    Tuple, Union)
 
 import numpy as np
 import torch
@@ -34,11 +25,8 @@ import torch.nn.functional as F
 from decorator import decorator
 from torch import nn
 
-from lucent.optvis.objectives_util import (
-    _extract_act_pos,
-    _make_arg_str,
-    _T_handle_batch,
-)
+from lucent.optvis.objectives_util import (_extract_act_pos, _make_arg_str,
+                                           _T_handle_batch)
 
 ObjectiveReturnT = Union[torch.Tensor, Tuple[torch.Tensor, List[torch.Tensor]]]
 ObjectiveT = Callable[[nn.Module, bool], ObjectiveReturnT]
@@ -205,9 +193,12 @@ class Objective:
                     return inner_left * inner_right
                 else:
                     inner_left = typing.cast(
-                        Tuple[torch.Tensor, List[torch.Tensor]], inner_left)
+                        Tuple[torch.Tensor, List[torch.Tensor]], inner_left
+                    )
                     inner_right = typing.cast(
-                        Tuple[torch.Tensor, List[torch.Tensor]], inner_right)
+                        Tuple[torch.Tensor, List[torch.Tensor]], inner_right
+                    )
+
                     return (
                         inner_left[0] * inner_right[0],
                         inner_left[1]
@@ -226,8 +217,8 @@ class Objective:
                 sub_objectives=[self, other],
             )
         else:
-            # Note: In original Lucid library, objectives can be multiplied with non-numbers
-            # Removing for now until we find a good use case
+            # Note: In original Lucid, objectives can be multiplied with non-numbers.
+            # Removing for now until we find a good use case.
             raise TypeError(
                 "Can only multiply by int, float or Objective. "
                 "Received type " + str(type(other))
@@ -249,9 +240,12 @@ class Objective:
                     return inner_left / inner_right
                 else:
                     inner_left = typing.cast(
-                        Tuple[torch.Tensor, List[torch.Tensor]], inner_left)
+                        Tuple[torch.Tensor, List[torch.Tensor]], inner_left
+                    )
                     inner_right = typing.cast(
-                        Tuple[torch.Tensor, List[torch.Tensor]], inner_right)
+                        Tuple[torch.Tensor, List[torch.Tensor]], inner_right
+                    )
+
                     return (
                         inner_left[0] / inner_right[0],
                         inner_left[1]
@@ -545,7 +539,7 @@ def _torch_blur(tensor: torch.Tensor, out_c: int = 3):
         weight_ch[:, :] = 0.5
         weight_ch[1:-1, 1:-1] = 1.0
     weight_t = torch.tensor(weight).float().to(device)
-    conv_f = lambda t: F.conv2d(t, weight_t, None, 1, 1)
+    conv_f = lambda t: F.conv2d(t, weight_t, None, 1, 1)  # noqa: E731
     return conv_f(tensor) / conv_f(torch.ones_like(tensor))
 
 
@@ -693,9 +687,7 @@ def diversity(
     return inner, [layer]
 
 
-def as_objective(
-    obj: Union[str, Objective, ObjectiveT]
-) -> Objective:
+def as_objective(obj: Union[str, Objective, ObjectiveT]) -> Objective:
     """Convert obj into Objective class.
 
     Strings of the form "layer:n" become the Objective channel(layer, n).
