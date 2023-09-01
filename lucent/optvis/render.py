@@ -68,7 +68,7 @@ def render_vis(
     additional_layers_of_interest: Optional[List[str]] = None,
     return_gradient_masks: bool = False,
     apply_gradient_masks: bool = False,
-) -> List[np.ndarray]:
+) -> Union[List[np.ndarray], Tuple[List[np.ndarray], List[np.ndarray]]]:
     if params_f is None:
         params_f = lambda: param.image(128)
     # params_f is a function that should return two things
@@ -106,6 +106,33 @@ def render_vis(
     if additional_layers_of_interest is None:
         additional_layers_of_interest = []
 
+    @torch.no_grad()
+    def _get_potentially_masked_image_and_mask(
+        image: torch.Tensor,
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """Transforms an image from torch to numpy and potentially mask it.
+
+        Args:
+            image: Image tensor to transform and potentially mask.
+
+        Returns:
+            Tuple of image and mask. If no mask is applied, the mask is None.
+        """
+        image_np = tensor_to_img_array(image)
+        if apply_gradient_masks or return_gradient_masks:
+            mask = running_abs_image_gradient.abs().numpy().transpose((0, 2, 3, 1))
+            # Take mean over color channels.
+            mask = np.mean(mask, axis=-1, keepdims=True)
+            # Normalize to [0, 1] alpha masks.
+            mask -= np.min(mask)
+            mask /= np.max(mask)
+            if apply_gradient_masks:
+                image_np = np.concatenate((image_np, mask), -1)
+        else:
+            mask = None
+
+        return image_np, mask
+
     with ModelHook(
         model, image_f, objective_f.relevant_layers + additional_layers_of_interest
     ) as hook, contextlib.ExitStack() as stack:
@@ -126,31 +153,9 @@ def render_vis(
             model(transform_f(image_f()))
             print("Initial loss: {:.3f}".format(objective_f(hook)))
 
-        @torch.no_grad()
-        def _get_potentially_masked_image_and_mask(image: torch.Tensor) -> Tuple[
-            np.ndarray, np.ndarray]:
-            image_np = tensor_to_img_array(image)
-            if apply_gradient_masks or return_gradient_masks:
-                image_gradient_mask = torch.mean(
-                    torch.abs(torch.stack(image_gradients)), dim=0)
-                # image_gradient_mask = torch.softmax(
-                #    image_gradient_mask.view(
-                #        image_gradient_mask.shape[0], -1), dim=-1).view(
-                #    image_gradient_mask.shape)
-                image_gradient_mask -= torch.min(image_gradient_mask)
-                image_gradient_mask /= torch.max(image_gradient_mask)
-                image_gradient_mask = image_gradient_mask.numpy().transpose(
-                    (0, 2, 3, 1))
-                if apply_gradient_masks:
-                    image_np = image_np * image_gradient_mask
-            else:
-                image_gradient_mask = None
-
-            return image_np, image_gradient_mask
-
-        images = []
-        image_gradient_masks = []
-        image_gradients = []
+        images: List[np.ndarray] = []
+        image_gradient_masks: List[np.ndarray] = []
+        running_abs_image_gradient = torch.zeros(image_shape)
         try:
             for i in tqdm(range(1, max(thresholds) + 1), disable=(not progress)):
                 optimizer.zero_grad()
@@ -173,14 +178,24 @@ def render_vis(
                 gradients = torch.autograd.grad(loss, params + [image])
                 for p, g in zip(params, gradients[:-1]):
                     p.grad = g
-                image_gradients.append(gradients[-1].detach().cpu())
                 optimizer.step()
 
+                if apply_gradient_masks or return_gradient_masks:
+                    running_abs_image_gradient = i / (
+                        i + 1
+                    ) * running_abs_image_gradient + gradients[
+                        -1
+                    ].abs().detach().cpu() / (
+                        i + 1
+                    )
+
                 if i in thresholds:
-                    potentially_masked_image, image_gradient_mask = (
-                        _get_potentially_masked_image_and_mask(image))
+                    (
+                        potentially_masked_image,
+                        image_gradient_mask,
+                    ) = _get_potentially_masked_image_and_mask(image)
                     if return_gradient_masks:
-                        image_gradient_masks.append(image_gradient_mask)
+                        image_gradient_masks.append(image_gradient_mask)  # type: ignore
                     if verbose:
                         print("Loss at step {}: {:.3f}".format(i, objective_f(hook)))
                         if show_inline:
@@ -214,11 +229,13 @@ def render_vis(
             print("Interrupted optimization at step {:d}.".format(i))
             if verbose:
                 print("Loss at step {}: {:.3f}".format(i, objective_f(hook)))
-            potentially_masked_image, image_gradient_mask = (
-                _get_potentially_masked_image_and_mask(image_f()))
+            (
+                potentially_masked_image,
+                image_gradient_mask,
+            ) = _get_potentially_masked_image_and_mask(image_f())
             images.append(potentially_masked_image)
             if return_gradient_masks:
-                image_gradient_masks.append(image_gradient_mask)
+                image_gradient_masks.append(image_gradient_mask)  # type: ignore
 
     if save_image:
         export(image_f(), image_name)
