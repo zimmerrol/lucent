@@ -60,6 +60,7 @@ def test_render_vis(inceptionv1_model):
     thresholds = (1, 2)
     imgs = render.render_vis(
         inceptionv1_model, "mixed4a:0", (224, 224),
+        preprocess=None,
         thresholds=thresholds, show_image=False
     )
     assert len(imgs) == len(thresholds)
@@ -77,6 +78,7 @@ def test_redirect_activations(model, redirected_activation_warmup):
         model,
         "mixed4a:0",
         (224, 224),
+        preprocess=None,
         thresholds=thresholds,
         show_image=False,
         redirected_activation_warmup=redirected_activation_warmup,
@@ -94,6 +96,7 @@ def test_interrupt_render_vis(inceptionv1_model, capfd):
         inceptionv1_model,
         "mixed4a:0",
         (224, 224),
+        preprocess=None,
         thresholds=thresholds,
         show_image=False,
         iteration_callback=iteration_callback,
