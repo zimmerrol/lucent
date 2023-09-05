@@ -10,9 +10,6 @@ from torch import nn
 class ModuleHook:
     def __init__(self, module: nn.Module):
         def hook_fn(m: nn.Module, args: Any, output: torch.Tensor):
-            device = output.device
-            self._features[str(device)] = output
-
             def add_to_features(t: torch.Tensor, idx: Optional[int] = None):
                 device = t.device
                 if idx is None:
@@ -22,7 +19,7 @@ class ModuleHook:
 
             if torch.is_tensor(output):
                 add_to_features(output)
-            elif isinstance(output, tuple):
+            elif isinstance(output, (tuple, list)):
                 for idx, out in enumerate(output):
                     if torch.is_tensor(out):
                         add_to_features(out, idx)
@@ -41,23 +38,29 @@ class ModuleHook:
             if "_" in keys[0]:
                 # Multiple tensors per device, i.e., a layer with multiple outputs.
                 tuple_idxs = list(set([k.split("_")[0] for k in keys]))
-                return tuple(
-                    [
-                        typing.cast(
-                            torch.Tensor,
-                            torch.nn.parallel.gather(
-                                [
-                                    self._features[k]
-                                    for k in keys
-                                    if k.startswith(str(idx))
-                                ],
-                                target_device=torch.device(keys[0].split("_")[1]),
-                                dim=0,
-                            ),
-                        )
-                        for idx in tuple_idxs
-                    ]
-                )
+                devices = list(set([k.split("_")[1] for k in keys]))
+
+                if len(devices) == 1:
+                    # All tensors on the same device, so we can just return a tuple.
+                    return tuple([self._features[k] for k in keys])
+                else:
+                    return tuple(
+                        [
+                            typing.cast(
+                                torch.Tensor,
+                                torch.nn.parallel.gather(
+                                    [
+                                        self._features[k]
+                                        for k in keys
+                                        if k.startswith(str(idx))
+                                    ],
+                                    target_device=torch.device(keys[0].split("_")[1]),
+                                    dim=0,
+                                ),
+                            )
+                            for idx in tuple_idxs
+                        ]
+                    )
             else:
                 return torch.nn.parallel.gather(
                     [self._features[k] for k in keys],
