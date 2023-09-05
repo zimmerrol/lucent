@@ -15,15 +15,13 @@
 
 from __future__ import absolute_import, division, print_function
 
-import random
-
-import numpy as np
 import pytest
 import torch
 
 from lucent.modelzoo import inceptionv1
 from lucent.optvis import objectives, param, render
 from lucent.util import set_seed
+from torchvision import models
 
 set_seed(137)
 
@@ -63,6 +61,12 @@ def channel_last_conv_linear_model_and_channel_mode():
             return torch.permute(x, (0, 3, 1, 2))
 
     return FCLinearModel().to(device).eval(), "last"
+
+
+@pytest.fixture
+def vit_b_16_model():
+    model = models.vit_b_16().to(device).eval()
+    return model
 
 
 def assert_gradient_descent(objective, model):
@@ -108,6 +112,19 @@ def test_channel(model_and_channel_mode):
     model, channel_mode = model_and_channel_mode
     objective = objectives.channel(
         "mixed3a_1x1_pre_relu_conv", 0, channel_mode=channel_mode
+    )
+    assert_gradient_descent(objective, model)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        pytest.lazy_fixture("vit_b_16_model"),
+    ],
+)
+def test_vit_channel(model):
+    objective = objectives.vit_channel(
+        "encoder_layers_encoder_layer_2_mlp_3", 0
     )
     assert_gradient_descent(objective, model)
 
