@@ -18,6 +18,7 @@ from __future__ import absolute_import, division, print_function
 import pytest
 import torch
 
+import lucent.optvis.objectives
 from lucent.modelzoo import inceptionv1
 from lucent.optvis import objectives, param, render
 from lucent.util import set_seed
@@ -69,8 +70,12 @@ def vit_b_16_model():
     return model
 
 
-def assert_gradient_descent(objective, model):
-    params, image = param.image(224, batch=2)
+def assert_gradient_descent(
+    objective: lucent.optvis.objectives.ObjectiveT,
+    model: torch.nn.Module,
+    input_size: int = 224,
+):
+    params, image = param.image(input_size, batch=2)
     optimizer = torch.optim.Adam(params, lr=0.05)
     with render.ModelHook(model, image) as T:
         objective_f = objectives.as_objective(objective)
@@ -123,10 +128,8 @@ def test_channel(model_and_channel_mode):
     ],
 )
 def test_vit_channel(model):
-    objective = objectives.vit_channel(
-        "encoder_layers_encoder_layer_2_mlp_3", 0
-    )
-    assert_gradient_descent(objective, model)
+    objective = objectives.vit_channel("encoder_layers_encoder_layer_2_mlp_3", 0)
+    assert_gradient_descent(objective, model, 224)
 
 
 @pytest.mark.parametrize(

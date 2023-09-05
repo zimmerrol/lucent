@@ -397,16 +397,16 @@ def vit_channel(
             raise RuntimeError(
                 "Shapes of activations do not match expected shape for objective."
             )
-        if activation.shape[0] == 1:
-            activation = activation[0]
-        elif activation.shape[1] == 1:
-            activation = activation[:, 0]
+
+        if channel_mode == "first":
+            activation = activation[:, n_channel, :]
+        elif channel_mode == "last":
+            activation = activation[:, :, n_channel]
         else:
-            raise RuntimeError(
-                "Shapes of activations do not match expected shape for "
-                "objective. Found shape: {}".format(activation.shape)
-            )
-        loss = -activation[1:, n_channel].mean(dim=0)  # Exclude CLS token
+            raise ValueError("channel_mode must be 'first' or 'last.")
+
+        activation = activation[:, 1:]  # Exclude CLS token
+        loss = -activation.mean()
         return loss
 
     return inner, [layer]
