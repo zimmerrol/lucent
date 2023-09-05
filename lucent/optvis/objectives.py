@@ -16,8 +16,17 @@
 from __future__ import absolute_import, division, print_function
 
 import typing
-from typing import (Any, Callable, List, Literal, Optional, Protocol, Sequence,
-                    Tuple, Union)
+from typing import (
+    Any,
+    Callable,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 import torch
@@ -25,8 +34,11 @@ import torch.nn.functional as F
 from decorator import decorator
 from torch import nn
 
-from lucent.optvis.objectives_util import (_extract_act_pos, _make_arg_str,
-                                           _T_handle_batch)
+from lucent.optvis.objectives_util import (
+    _extract_act_pos,
+    _make_arg_str,
+    _T_handle_batch,
+)
 
 ObjectiveReturnT = Union[torch.Tensor, Tuple[torch.Tensor, List[torch.Tensor]]]
 ObjectiveT = Callable[[nn.Module, bool], ObjectiveReturnT]
@@ -351,7 +363,7 @@ def channel(
     channel_mode: Union[Literal["first"], Literal["last"]] = "first",
     batch=None,
 ) -> WrapObjectiveInnerT:
-    """Visualize a single channel"""
+    """Visualize a single channel of a CNN/convolutional layer."""
 
     if channel_mode not in ("first", "last"):
         raise ValueError("channel_mode must be 'first' or 'last.")
@@ -362,6 +374,40 @@ def channel(
             return -model(layer)[:, n_channel].mean()
         else:
             return -model(layer)[..., n_channel].mean()
+
+    return inner, [layer]
+
+
+@wrap_objective()
+def vit_channel(
+    layer: str,
+    n_channel: int,
+    channel_mode: Union[Literal["first"], Literal["last"]] = "first",
+    batch=None,
+):
+    """Visualize a single channel of a ViT/self-attention layer."""
+
+    if channel_mode != "first":
+        raise NotImplementedError("Only channel first format is supported for now")
+
+    @handle_batch(batch)
+    def inner(model):
+        activation = model(layer)
+        if activation.ndim != 3:
+            raise RuntimeError(
+                "Shapes of activations do not match expected shape for objective."
+            )
+        if activation.shape[0] == 1:
+            activation = activation[0]
+        elif activation.shape[1] == 1:
+            activation = activation[:, 0]
+        else:
+            raise RuntimeError(
+                "Shapes of activations do not match expected shape for "
+                "objective. Found shape: {}".format(activation.shape)
+            )
+        loss = -activation[1:, n_channel].mean(dim=0)  # Exclude CLS token
+        return loss
 
     return inner, [layer]
 
