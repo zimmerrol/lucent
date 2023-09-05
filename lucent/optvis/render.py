@@ -122,6 +122,9 @@ def render_vis(
         """
         image_np = tensor_to_img_array(image)
         if apply_gradient_masks or return_gradient_masks:
+            # Compute gradient mask to visualize where the model is looking at in
+            # pixel space, as suggested in "Unlocking Feature Visualization for Deeper
+            # Networks with MAgnitude Constrained Optimization".
             mask = running_abs_image_gradient.abs().numpy().transpose((0, 2, 3, 1))
             # Take mean over color channels.
             mask = np.mean(mask, axis=-1, keepdims=True)
