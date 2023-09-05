@@ -30,7 +30,7 @@ from lucent.optvis import objectives, param, redirections, transform
 from lucent.optvis.hooks import ModelHook
 
 ObjectiveT = Union[str, objectives.ObjectiveT, objectives.Objective]
-ParamT = Callable[[], Tuple[List[torch.Tensor], Callable[[], torch.Tensor]]]
+ParamsT = Callable[[], Tuple[Sequence[torch.Tensor], Callable[[], torch.Tensor]]]
 OptimizerT = Callable[[Sequence[torch.Tensor]], torch.optim.Optimizer]
 
 
@@ -43,7 +43,7 @@ def render_vis(
     objective_f: ObjectiveT,
     target_image_shape: Optional[Tuple[int, int]],
     preprocess: Optional[Union[str, Callable[[torch.Tensor], torch.Tensor]]],
-    param_f: Optional[ParamT] = None,
+    params_f: Optional[ParamsT] = None,
     optimizer_f: Optional[OptimizerT] = None,
     transforms: Optional[List[Callable[[torch.Tensor], torch.Tensor]]] = None,
     thresholds: Sequence[int] = (512,),
@@ -66,13 +66,15 @@ def render_vis(
         ]
     ] = None,
     additional_layers_of_interest: Optional[List[str]] = None,
-) -> List[np.ndarray]:
-    if param_f is None:
-        param_f = lambda: param.image(128)  # noqa: E731
+    return_gradient_masks: bool = False,
+    apply_gradient_masks: bool = False,
+) -> Union[List[np.ndarray], Tuple[List[np.ndarray], List[np.ndarray]]]:
+    if params_f is None:
+        params_f = lambda: param.image(128)
     # params_f is a function that should return two things:
     # (1) params,  parameters to update, which we pass to the optimizer
     # (2) image_f, a function that returns an image as a tensor
-    params, image_f = param_f()
+    params, image_f = params_f()
 
     image_shape = image_f().shape
 
@@ -106,6 +108,36 @@ def render_vis(
     if additional_layers_of_interest is None:
         additional_layers_of_interest = []
 
+    @torch.no_grad()
+    def _get_potentially_masked_image_and_mask(
+        image: torch.Tensor,
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """Transforms an image from torch to numpy and potentially mask it.
+
+        Args:
+            image: Image tensor to transform and potentially mask.
+
+        Returns:
+            Tuple of image and mask. If no mask is applied, the mask is None.
+        """
+        image_np = tensor_to_img_array(image)
+        if apply_gradient_masks or return_gradient_masks:
+            # Compute gradient mask to visualize where the model is looking at in
+            # pixel space, as suggested in "Unlocking Feature Visualization for Deeper
+            # Networks with MAgnitude Constrained Optimization".
+            mask = running_abs_image_gradient.abs().numpy().transpose((0, 2, 3, 1))
+            # Take mean over color channels.
+            mask = np.mean(mask, axis=-1, keepdims=True)
+            # Normalize to [0, 1] alpha masks.
+            mask -= np.min(mask)
+            mask /= np.max(mask)
+            if apply_gradient_masks:
+                image_np = np.concatenate((image_np, mask), -1)
+        else:
+            mask = None
+
+        return image_np, mask
+
     with ModelHook(
         model, image_f, objective_f.relevant_layers + additional_layers_of_interest
     ) as hook, contextlib.ExitStack() as stack:
@@ -128,12 +160,15 @@ def render_vis(
                 "Initial loss: {:.3f}".format(objective_f(hook, False))
             )  # type: ignore
 
-        images = []
+        images: List[np.ndarray] = []
+        image_gradient_masks: List[np.ndarray] = []
+        running_abs_image_gradient = torch.zeros(image_shape)
         try:
             for i in tqdm(range(1, max(thresholds) + 1), disable=(not progress)):
                 optimizer.zero_grad()
                 try:
-                    model(transform_f(image_f()))
+                    image = image_f()
+                    model(transform_f(image))
                 except RuntimeError as ex:
                     if i == 1:
                         # Only display the warning message
@@ -145,21 +180,38 @@ def render_vis(
                             "computed layers are not used in the objective function"
                             f"(exception details: '{ex}')"
                         )
+                    raise ex
                 loss, sublosses = objective_f(hook, True)
-                loss.backward()
+                gradients = torch.autograd.grad(loss, params + [image])
+                for p, g in zip(params, gradients[:-1]):
+                    p.grad = g
                 optimizer.step()
 
+                if apply_gradient_masks or return_gradient_masks:
+                    running_abs_image_gradient = i / (
+                        i + 1
+                    ) * running_abs_image_gradient + gradients[
+                        -1
+                    ].abs().detach().cpu() / (
+                        i + 1
+                    )
+
                 if i in thresholds:
-                    image = tensor_to_img_array(image_f())
+                    (
+                        potentially_masked_image,
+                        image_gradient_mask,
+                    ) = _get_potentially_masked_image_and_mask(image)
+                    if return_gradient_masks:
+                        image_gradient_masks.append(image_gradient_mask)  # type: ignore
                     if verbose:
                         print("Loss at step {}: {:.3f}".format(i, loss.item()))
                         if show_inline:
-                            show(image)
-                    images.append(image)
+                            show(potentially_masked_image)
+                    images.append(potentially_masked_image)
 
                 if iteration_callback:
                     try:
-                        iteration_callback(hook, (loss, sublosses), image_f(), params)
+                        iteration_callback(hook, (loss, sublosses), image, params)
                     except RenderInterrupt:
                         # This is a special exception that allows to stop the rendering
                         # process from the callback.
@@ -168,7 +220,7 @@ def render_vis(
                         print("Interrupted optimization at step {:d}.".format(i))
                         if verbose:
                             print("Loss at step {}: {:.3f}".format(i, loss.item()))
-                        images.append(tensor_to_img_array(image_f()))
+                        images.append(_get_potentially_masked_image_and_mask(image)[0])
                         break
 
                 if i == redirected_activation_warmup:
@@ -184,7 +236,13 @@ def render_vis(
                 print(
                     "Loss at step {}: {:.3f}".format(i, objective_f(hook, False))
                 )  # type: ignore
-            images.append(tensor_to_img_array(image_f()))
+            (
+                potentially_masked_image,
+                image_gradient_mask,
+            ) = _get_potentially_masked_image_and_mask(image_f())
+            images.append(potentially_masked_image)
+            if return_gradient_masks:
+                image_gradient_masks.append(image_gradient_mask)  # type: ignore
 
     if save_image:
         export(image_f(), image_name)
@@ -192,7 +250,10 @@ def render_vis(
         show(tensor_to_img_array(image_f()))
     elif show_image:
         view(image_f())
-    return images
+    if return_gradient_masks:
+        return images, image_gradient_masks
+    else:
+        return images
 
 
 def tensor_to_img_array(tensor: torch.Tensor):

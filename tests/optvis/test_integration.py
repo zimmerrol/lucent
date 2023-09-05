@@ -38,7 +38,7 @@ def test_integration(inceptionv1_model, decorrelate, mode):
             torch.randn(3, 224, 224)).abs()}
     else:
         inner_kwargs = {}
-    param_f = lambda: param.image(224, decorrelate=decorrelate, mode=mode,
+    params_f = lambda: param.image(224, decorrelate=decorrelate, mode=mode,
                                   **inner_kwargs)
     optimizer_f = lambda params: torch.optim.Adam(params, lr=0.1)
 
@@ -47,7 +47,7 @@ def test_integration(inceptionv1_model, decorrelate, mode):
         obj,
         (224, 224),
         preprocess="inceptionv1",
-        param_f=param_f,
+        params_f=params_f,
         optimizer_f=optimizer_f,
         thresholds=(1, 2),
         verbose=True,
