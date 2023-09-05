@@ -34,12 +34,14 @@ def inceptionv1_model():
 def test_integration(inceptionv1_model, decorrelate, mode):
     obj = "mixed3a_1x1_pre_relu_conv:0"
     if mode == "fft_maco":
-        inner_kwargs = {"spectrum_magnitude": torch.fft.rfftn(
-            torch.randn(3, 224, 224)).abs()}
+        inner_kwargs = {
+            "spectrum_magnitude": torch.fft.rfftn(torch.randn(3, 224, 224)).abs()
+        }
     else:
         inner_kwargs = {}
-    params_f = lambda: param.image(224, decorrelate=decorrelate, mode=mode,
-                                  **inner_kwargs)
+    params_f = lambda: param.image(
+        224, decorrelate=decorrelate, mode=mode, **inner_kwargs
+    )
     optimizer_f = lambda params: torch.optim.Adam(params, lr=0.1)
 
     images = render.render_vis(
