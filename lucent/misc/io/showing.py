@@ -315,7 +315,7 @@ def textured_mesh(mesh, texture, background="0xffffff"):
         renderer.render(scene, camera);
     }
     </script>
-    """
+    """  # noqa: E501
     ).substitute(
         verts=array_to_jsbuffer(mesh["position"].ravel()),
         uvs=array_to_jsbuffer(mesh["uv"].ravel()),

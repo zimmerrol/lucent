@@ -15,26 +15,37 @@
 
 from __future__ import absolute_import, division, print_function
 
-from typing import Callable, Sequence
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import kornia
 import numpy as np
 import torch
 import torch.nn.functional as F
-from kornia.geometry.transform import translate
 from torchvision.transforms import Normalize
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 KORNIA_VERSION = kornia.__version__
 
 
 def jitter(d: int) -> Callable[[torch.Tensor], torch.Tensor]:
-    assert d > 1, "Jitter parameter d must be more than 1, currently {}".format(d)
+    assert d > 0, "Jitter parameter d must be more than 0, currently {}".format(d)
 
     def inner(image_t: torch.Tensor) -> torch.Tensor:
-        dx = np.random.choice(d)
-        dy = np.random.choice(d)
-        return translate(image_t, torch.tensor([[dx, dy]]).float().to(device))
+        w, h = image_t.shape[-2:]
+        sx = np.random.choice([-1, 1])
+        sy = np.random.choice([-1, 1])
+        dx = np.random.choice(d + 1)
+        dy = np.random.choice(d + 1)
+        if sx > 0:
+            image_t = image_t[..., dx:, :].contiguous()
+        else:
+            image_t = image_t[..., : w - dx, :].contiguous()
+
+        if sy > 0:
+            image_t = image_t[..., dy:, :].contiguous()
+        else:
+            image_t = image_t[..., : h - dy, :].contiguous()
+
+        return image_t
 
     return inner
 
@@ -56,7 +67,9 @@ def pad(
     return inner
 
 
-def random_scale(scales: Sequence[float]) -> Callable[[torch.Tensor], torch.Tensor]:
+def random_scale(
+    scales: Sequence[float], pad_constant_value: float = 0.5
+) -> Callable[[torch.Tensor], torch.Tensor]:
     def inner(image_t: torch.Tensor) -> torch.Tensor:
         scale = np.random.choice(scales)
         shp = image_t.shape[2:]
@@ -66,7 +79,7 @@ def random_scale(scales: Sequence[float]) -> Callable[[torch.Tensor], torch.Tens
         upsample = torch.nn.Upsample(
             size=scale_shape, mode="bilinear", align_corners=True
         )
-        return F.pad(upsample(image_t), [pad_y, pad_x] * 2)
+        return F.pad(upsample(image_t), [pad_y, pad_x] * 2, value=pad_constant_value)
 
     return inner
 
@@ -86,10 +99,12 @@ def random_rotate(
         center = torch.ones(b, 2)
         center[..., 0] = (image_t.shape[3] - 1) / 2
         center[..., 1] = (image_t.shape[2] - 1) / 2
-        M = kornia.geometry.transform.get_rotation_matrix2d(
-            center, angle, scale).to(device)
+        M = kornia.geometry.transform.get_rotation_matrix2d(center, angle, scale).to(
+            image_t.device
+        )
         rotated_image = kornia.geometry.transform.warp_affine(
-            image_t.float(), M, dsize=(h, w))
+            image_t.float(), M, dsize=(h, w)
+        )
         return rotated_image
 
     return inner
@@ -135,17 +150,42 @@ def center_crop(h: int, w: int) -> Callable[[torch.Tensor], torch.Tensor]:
     If the image is smaller than the given height and width, then the image is
     returned as is.
     """
+
     def inner(x: torch.Tensor) -> torch.Tensor:
         if x.shape[2] >= h and x.shape[3] >= w:
             oy = (x.shape[2] - h) // 2
             ox = (x.shape[3] - w) // 2
 
-            return x[:, :, oy:oy + h, ox:ox + w]
+            return x[:, :, oy : oy + h, ox : ox + w]
         elif x.shape[2] < h and x.shape[3] < w:
             return x
         else:
-            raise ValueError("Either both width and height must be smaller than the "
-                             "image, or both must be larger.")
+            raise ValueError(
+                "Either both width and height must be smaller than the "
+                "image, or both must be larger."
+            )
+
+    return inner
+
+
+def resize(
+    h: int, w: int, interpolation: str = "bilinear"
+) -> Callable[[torch.Tensor], torch.Tensor]:
+    """Resize the image to at least the given height and width.
+
+    Does not change the image if it is larger than the given height and width.
+
+    Args:
+        h: The height to resize to.
+        w: The width to resize to.
+        interpolation: The interpolation method to use. Must be one of
+            "nearest", "bilinear", or "bicubic".
+    """
+
+    def inner(x: torch.Tensor) -> torch.Tensor:
+        if x.shape[2] >= h and x.shape[3] >= w:
+            return x
+        return F.interpolate(x, (h, w), mode=interpolation, align_corners=True)
 
     return inner
 
@@ -158,11 +198,21 @@ def preprocess_inceptionv1() -> Callable[[torch.Tensor], torch.Tensor]:
     return lambda x: x * 255 - 117
 
 
-standard_transforms = [
-    pad(12, mode="constant", constant_value=0.5),
-    jitter(8),
-    random_scale([1 + (i - 5) / 50.0 for i in range(11)]),
-    random_rotate(list(range(-10, 11)) + 5 * [0]),
-    jitter(4),
-    center_crop(224, 224)
-]
+def get_standard_transforms(
+    source_shape: Tuple[int, int], target_shape: Optional[Tuple[int, int]] = None
+) -> List[Callable[[torch.Tensor], torch.Tensor]]:
+    unit = max(source_shape) // 32
+
+    augmentations = [
+        pad(3 * unit, mode="constant", constant_value=0.5),
+        jitter(2 * unit),
+        random_scale([1 + (i - 5) / 50.0 for i in range(11)]),
+        random_rotate(list(range(-10, 11)) + 5 * [0]),
+        jitter(unit),
+    ]
+
+    if target_shape:
+        augmentations.append(center_crop(*target_shape))
+        augmentations.append(resize(*target_shape))
+
+    return augmentations

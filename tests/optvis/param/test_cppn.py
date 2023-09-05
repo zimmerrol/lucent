@@ -24,20 +24,19 @@ from lucent.optvis import param, render, objectives
 
 def xor_loss(T):
     tensor = T
-    loss = -(torch.square(tensor[:, :, 0, 0]) + \
-            torch.square(1 - tensor[:, :, -1, 0]) + \
-            torch.square(tensor[:, :, -1, -1]) + \
-            torch.square(1 - tensor[:, :, 0, -1]))
+    loss = -(torch.square(tensor[:, :, 0, 0]) +
+             torch.square(1 - tensor[:, :, -1, 0]) +
+             torch.square(tensor[:, :, -1, -1]) +
+             torch.square(1 - tensor[:, :, 0, -1]))
     return torch.sum(loss)
 
 
 def test_cppn_fits_xor():
     params, image = param.cppn(16)
     optimizer = torch.optim.Adam(params, lr=0.01)
-    objective_f = objectives.as_objective(xor_loss)
     for _ in range(200):
         optimizer.zero_grad()
-        loss = objective_f(image())
+        loss = xor_loss(image())
         loss.backward()
         optimizer.step()
         vis = image()[0]

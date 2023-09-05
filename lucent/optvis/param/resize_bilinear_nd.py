@@ -21,13 +21,16 @@ applies torch.nn.Upsample (which can only resize 2 dimensions).
 
 from __future__ import absolute_import, division, print_function
 
+from numbers import Number
+from typing import Sequence
+
 import torch
 
 
-def product(l):
+def product(values: Sequence[Number]) -> Number:
     """Multiply together the elements of a list."""
     prod = 1
-    for x in l:
+    for x in values:
         prod *= x
     return prod
 
@@ -79,7 +82,6 @@ def resize_bilinear_nd(t, target_shape):
     # We progressively move through the shape, resizing dimensions...
     d = 0
     while d < len(shape):
-
         # If we don't need to deal with the next dimension, step over it
         if shape[d] == target_shape[d]:
             d += 1

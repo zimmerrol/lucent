@@ -3,23 +3,31 @@ Copyright 2020 Binxu Wang
 Use GAN as prior to do feature visualization.
 This method is inspired by the work
     Nguyen, A., Dosovitskiy, A., Yosinski, J., Brox, T., & Clune, J.
-    Synthesizing the preferred inputs for neurons in neural networks via deep generator networks.(2016) NIPS
+    Synthesizing the preferred inputs for neurons in neural networks via deep
+    generator networks.(2016) NIPS
 
 The GAN model is imported from
-    A. Dosovitskiy, T. Brox `Generating Images with Perceptual Similarity Metrics based on Deep Networks` (2016), NIPS.
+    A. Dosovitskiy, T. Brox `Generating Images with Perceptual Similarity Metrics
+    based on Deep Networks` (2016), NIPS.
     https://lmb.informatik.uni-freiburg.de/people/dosovits/code.html
 the author translated the models (pool5-fc8) into pytorch and hosts the weights online.
 
 Jun.4th 2020
 """
 import os
+import shutil
+import tempfile
 from collections import OrderedDict
 from os.path import join
 
+import requests
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 
-load_urls = True  # If you have downloaded the pt files you can set the netsdir and set load_urls as False.
+# If you have downloaded the pt files you can set the netsdir and set
+# load_urls as False.
+load_urls = True
 netsdir = "~"  # the place you put the networks
 
 model_urls = {
@@ -30,15 +38,64 @@ model_urls = {
 }
 
 
+def download_url_to_file(url, dst, progress=True):
+    """Download object at the given URL to a local path.
+    This is a copy of torch.hub.download_url_to_file, but with a different User-Agent
+    and using the requests instead of the urllib library.
+
+    Args:
+        url (str): URL of the object to download
+        dst (str): Full path where object will be saved, e.g. ``/tmp/temporary_file``
+        progress (bool, optional): whether or not to display a progress bar to stderr
+            Default: True
+
+    """
+    file_size = None
+    response = requests.get(url, stream=True)
+    if "Content-Length" in response.headers:
+        try:
+            content_length = int(response.headers["Content-Length"])
+            if content_length > 0:
+                file_size = int(content_length[0])
+        except:  # noqa: E722
+            file_size = None
+    else:
+        file_size = None
+
+    # We deliberately save it in a temp file and move it after
+    # download is complete. This prevents a local working checkpoint
+    # being overridden by a broken download.
+    dst = os.path.expanduser(dst)
+    dst_dir = os.path.dirname(dst)
+    f = tempfile.NamedTemporaryFile(delete=False, dir=dst_dir)
+
+    try:
+        with tqdm(
+            total=file_size,
+            disable=not progress,
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as pbar:
+            for buffer in response.iter_content(chunk_size=8192):
+                f.write(buffer)
+                pbar.update(len(buffer))
+
+        f.close()
+        shutil.move(f.name, dst)
+    finally:
+        f.close()
+        if os.path.exists(f.name):
+            os.remove(f.name)
+
+
 def load_statedict_from_online(name="fc6"):
     torchhome = torch.hub._get_torch_home()
     ckpthome = join(torchhome, "checkpoints")
     os.makedirs(ckpthome, exist_ok=True)
     filepath = join(ckpthome, "upconvGAN_%s.pt" % name)
     if not os.path.exists(filepath):
-        torch.hub.download_url_to_file(
-            model_urls[name], filepath, hash_prefix=None, progress=True
-        )
+        download_url_to_file(model_urls[name], filepath, progress=True)
     SD = torch.load(filepath)
     return SD
 
