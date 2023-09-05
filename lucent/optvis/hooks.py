@@ -1,5 +1,7 @@
+import collections
+import typing
 from types import TracebackType
-from typing import Any, Callable, Dict, Optional, Sequence, Type
+from typing import Any, Callable, Optional, OrderedDict, Sequence, Tuple, Type, Union
 
 import torch
 from torch import nn
@@ -8,21 +10,62 @@ from torch import nn
 class ModuleHook:
     def __init__(self, module: nn.Module):
         def hook_fn(m: nn.Module, args: Any, output: torch.Tensor):
-            device = output.device
-            self._features[str(device)] = output
+            def add_to_features(t: torch.Tensor, idx: Optional[int] = None):
+                device = t.device
+                if idx is None:
+                    self._features[str(device)] = t
+                else:
+                    self._features[f"{idx}_{str(device)}"] = t
+
+            if torch.is_tensor(output):
+                add_to_features(output)
+            elif isinstance(output, (tuple, list)):
+                for idx, out in enumerate(output):
+                    if torch.is_tensor(out):
+                        add_to_features(out, idx)
 
         self.hook = module.register_forward_hook(hook_fn)
-        self._features: Dict[str, torch.Tensor] = dict()
+        self._features: OrderedDict[str, torch.Tensor] = collections.OrderedDict()
 
     @property
-    def features(self):
+    def features(self) -> Union[None, torch.Tensor, Tuple[torch.Tensor, ...]]:
         keys = list(sorted(self._features.keys()))
         if len(keys) == 0:
             return None
         elif len(keys) == 1:
             return self._features[keys[0]]
         else:
-            return torch.nn.parallel.gather([self._features[k] for k in keys], keys[0])
+            if "_" in keys[0]:
+                # Multiple tensors per device, i.e., a layer with multiple outputs.
+                tuple_idxs = list(set([k.split("_")[0] for k in keys]))
+                devices = list(set([k.split("_")[1] for k in keys]))
+
+                if len(devices) == 1:
+                    # All tensors on the same device, so we can just return a tuple.
+                    return tuple([self._features[k] for k in keys])
+                else:
+                    return tuple(
+                        [
+                            typing.cast(
+                                torch.Tensor,
+                                torch.nn.parallel.gather(
+                                    [
+                                        self._features[k]
+                                        for k in keys
+                                        if k.startswith(str(idx))
+                                    ],
+                                    target_device=torch.device(keys[0].split("_")[1]),
+                                    dim=0,
+                                ),
+                            )
+                            for idx in tuple_idxs
+                        ]
+                    )
+            else:
+                return torch.nn.parallel.gather(
+                    [self._features[k] for k in keys],
+                    target_device=torch.device(keys[0]),
+                )
 
     def close(self):
         self.hook.remove()
@@ -37,7 +80,7 @@ class ModelHook:
     ):
         self.model = model
         self.image_f = image_f
-        self.features: Dict[str, ModuleHook] = {}
+        self.features: OrderedDict[str, ModuleHook] = collections.OrderedDict()
         self.layer_names = layer_names
 
     def __enter__(self):
