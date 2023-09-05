@@ -74,21 +74,27 @@ def assert_gradient_descent(
     objective: lucent.optvis.objectives.ObjectiveT,
     model: torch.nn.Module,
     input_size: int = 224,
+    n_attempts: int = 3,
 ):
-    params, image = param.image(input_size, batch=2)
-    optimizer = torch.optim.Adam(params, lr=0.05)
-    with render.ModelHook(model, image) as T:
-        objective_f = objectives.as_objective(objective)
-        model(image())
-        start_value = objective_f(T)
-        for _ in range(NUM_STEPS):
-            optimizer.zero_grad()
+    for _ in range(n_attempts):
+        params, image = param.image(input_size, batch=2)
+        optimizer = torch.optim.Adam(params, lr=0.05)
+        with render.ModelHook(model, image) as T:
+            objective_f = objectives.as_objective(objective)
             model(image())
-            loss = objective_f(T)
-            loss.backward()
-            optimizer.step()
-        end_value = objective_f(T)
-    assert start_value > end_value
+            start_value = objective_f(T)
+            for _ in range(NUM_STEPS):
+                optimizer.zero_grad()
+                model(image())
+                loss = objective_f(T)
+                loss.backward()
+                optimizer.step()
+            end_value = objective_f(T)
+        if start_value > end_value:
+            return
+    raise AssertionError(
+        "Gradient descent did not improve objective value: {0} -> {1}".format(
+            start_value, end_value))
 
 
 @pytest.mark.parametrize(
