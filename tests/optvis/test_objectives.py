@@ -92,6 +92,7 @@ def assert_gradient_descent(
             end_value = objective_f(T)
         if start_value > end_value:
             return
+
     raise AssertionError(
         "Gradient descent did not improve objective value: {0} -> {1}".format(
             start_value, end_value))
@@ -135,7 +136,7 @@ def test_channel(model_and_channel_mode):
 )
 def test_vit_channel(model):
     objective = objectives.vit_channel("encoder_layers_encoder_layer_2_mlp_3", 0)
-    assert_gradient_descent(objective, model, 224)
+    assert_gradient_descent(objective, model)
 
 
 @pytest.mark.parametrize(
@@ -199,7 +200,7 @@ def test_sum(inceptionv1_model):
 
 
 def test_linear_transform(inceptionv1_model):
-    objective = 1 + 1 * -objectives.channel("mixed4a", 0) / 1 - 1
+    objective = 1 + 1 * -objectives.channel("mixed4a_pool_reduce_pre_relu_conv", 0) / 1 - 1
     assert_gradient_descent(objective, inceptionv1_model)
 
 

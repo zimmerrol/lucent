@@ -384,14 +384,14 @@ def vit_channel(
     n_channel: int,
     channel_mode: Union[Literal["first"], Literal["last"]] = "first",
     batch=None,
-):
+) -> WrapObjectiveInnerT:
     """Visualize a single channel of a ViT/self-attention layer."""
 
-    if channel_mode != "first":
-        raise NotImplementedError("Only channel first format is supported for now")
+    if channel_mode not in ("first", "last"):
+        raise ValueError("channel_mode must be 'first' or 'last.")
 
     @handle_batch(batch)
-    def inner(model):
+    def inner(model: nn.Module) -> torch.Tensor:
         activation = model(layer)
         if activation.ndim != 3:
             raise RuntimeError(
@@ -400,10 +400,8 @@ def vit_channel(
 
         if channel_mode == "first":
             activation = activation[:, n_channel, :]
-        elif channel_mode == "last":
-            activation = activation[:, :, n_channel]
         else:
-            raise ValueError("channel_mode must be 'first' or 'last.")
+            activation = activation[:, :, n_channel]
 
         activation = activation[:, 1:]  # Exclude CLS token
         loss = -activation.mean()
