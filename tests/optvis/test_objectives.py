@@ -27,7 +27,7 @@ from torchvision import models
 set_seed(137)
 
 
-NUM_STEPS = 5
+NUM_STEPS = 20
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
