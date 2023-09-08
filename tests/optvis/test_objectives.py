@@ -49,10 +49,10 @@ def channel_last_conv_linear_model_and_channel_mode():
             super(FCLinearModel, self).__init__()
             self.mixed3a_1x1_pre_relu_conv = torch.nn.Linear(3, 64, bias=False)
             self.mixed4a_pool_reduce_pre_relu_conv = torch.nn.Linear(
-                64, 480, bias=False
+                64, 64, bias=False
             )
             self.mixed4c_pool_reduce_pre_relu_conv = torch.nn.Linear(
-                480, 512, bias=False
+                64, 512, bias=False
             )
             self.relu = torch.nn.ReLU()
 
