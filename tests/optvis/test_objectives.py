@@ -15,20 +15,19 @@
 
 from __future__ import absolute_import, division, print_function
 
-import random
-
-import numpy as np
 import pytest
 import torch
 
+import lucent.optvis.objectives
 from lucent.modelzoo import inceptionv1
 from lucent.optvis import objectives, param, render
 from lucent.util import set_seed
+from torchvision import models
 
 set_seed(137)
 
 
-NUM_STEPS = 5
+NUM_STEPS = 20
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -49,37 +48,60 @@ def channel_last_conv_linear_model_and_channel_mode():
         def __init__(self):
             super(FCLinearModel, self).__init__()
             self.mixed3a_1x1_pre_relu_conv = torch.nn.Linear(3, 64, bias=False)
-            self.mixed4a = torch.nn.Linear(64, 480, bias=False)
-            self.mixed4c = torch.nn.Linear(480, 512, bias=False)
+            self.mixed4a_pool_reduce_pre_relu_conv = torch.nn.Linear(
+                64, 64, bias=False
+            )
+            self.mixed4c_pool_reduce_pre_relu_conv = torch.nn.Linear(
+                64, 64, bias=False
+            )
             self.relu = torch.nn.ReLU()
 
         def forward(self, x):
             x = torch.permute(x, (0, 2, 3, 1))
             x = self.mixed3a_1x1_pre_relu_conv(x)
             x = self.relu(x)
-            x = self.mixed4a(x)
+            x = self.mixed4a_pool_reduce_pre_relu_conv(x)
             x = self.relu(x)
-            x = self.mixed4c(x)
+            x = self.mixed4c_pool_reduce_pre_relu_conv(x)
             return torch.permute(x, (0, 3, 1, 2))
 
     return FCLinearModel().to(device).eval(), "last"
 
 
-def assert_gradient_descent(objective, model):
-    params, image = param.image(224, batch=2)
-    optimizer = torch.optim.Adam(params, lr=0.05)
-    with render.ModelHook(model, image) as T:
-        objective_f = objectives.as_objective(objective)
-        model(image())
-        start_value = objective_f(T)
-        for _ in range(NUM_STEPS):
-            optimizer.zero_grad()
+@pytest.fixture
+def vit_b_16_model():
+    model = models.vit_b_16().to(device).eval()
+    return model
+
+
+def assert_gradient_descent(
+    objective: lucent.optvis.objectives.ObjectiveT,
+    model: torch.nn.Module,
+    input_size: int = 224,
+    n_attempts: int = 3,
+):
+    for _ in range(n_attempts):
+        params, image = param.image(input_size, batch=2)
+        optimizer = torch.optim.Adam(params, lr=0.05)
+        with render.ModelHook(model, image) as T:
+            objective_f = objectives.as_objective(objective)
             model(image())
-            loss = objective_f(T)
-            loss.backward()
-            optimizer.step()
-        end_value = objective_f(T)
-    assert start_value > end_value
+            start_value = objective_f(T)
+            for _ in range(NUM_STEPS):
+                optimizer.zero_grad()
+                model(image())
+                loss = objective_f(T)
+                loss.backward()
+                optimizer.step()
+            end_value = objective_f(T)
+        if start_value > end_value:
+            return
+
+    raise AssertionError(
+        "Gradient descent did not improve objective value: {0} -> {1}".format(
+            start_value, end_value
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -109,6 +131,17 @@ def test_channel(model_and_channel_mode):
     objective = objectives.channel(
         "mixed3a_1x1_pre_relu_conv", 0, channel_mode=channel_mode
     )
+    assert_gradient_descent(objective, model)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        pytest.lazy_fixture("vit_b_16_model"),
+    ],
+)
+def test_vit_channel(model):
+    objective = objectives.vit_channel("encoder_layers_encoder_layer_2_mlp_3", 0)
     assert_gradient_descent(objective, model)
 
 
@@ -173,7 +206,9 @@ def test_sum(inceptionv1_model):
 
 
 def test_linear_transform(inceptionv1_model):
-    objective = 1 + 1 * -objectives.channel("mixed4a", 0) / 1 - 1
+    objective = (
+        1 + 1 * -objectives.channel("mixed4a_pool_reduce_pre_relu_conv", 0) / 1 - 1
+    )
     assert_gradient_descent(objective, inceptionv1_model)
 
 
@@ -229,7 +264,11 @@ def test_blur_input_each_step(inceptionv1_model):
 def test_channel_interpolate(model_and_channel_mode):
     model, channel_mode = model_and_channel_mode
     objective = objectives.channel_interpolate(
-        "mixed4a", 465, "mixed4a", 460, channel_mode=channel_mode
+        "mixed4a_pool_reduce_pre_relu_conv",
+        32,
+        "mixed4a_pool_reduce_pre_relu_conv",
+        33,
+        channel_mode=channel_mode,
     )
     assert_gradient_descent(objective, model)
 
@@ -249,8 +288,10 @@ def test_alignment(inceptionv1_model):
 def test_diversity(model_and_channel_mode):
     model, channel_mode = model_and_channel_mode
     objective = objectives.channel(
-        "mixed4a", 0, channel_mode=channel_mode
-    ) - 100 * objectives.diversity("mixed4a", channel_mode=channel_mode)
+        "mixed4a_pool_reduce_pre_relu_conv", 0, channel_mode=channel_mode
+    ) - 100 * objectives.diversity(
+        "mixed4a_pool_reduce_pre_relu_conv", channel_mode=channel_mode
+    )
     assert_gradient_descent(objective, model)
 
 
@@ -263,9 +304,11 @@ def test_diversity(model_and_channel_mode):
 )
 def test_direction(model_and_channel_mode):
     model, channel_mode = model_and_channel_mode
-    direction = torch.rand(512) * 1000
+    direction = torch.rand(64) * 1000
     objective = objectives.direction(
-        layer="mixed4c", direction=direction, channel_mode=channel_mode
+        layer="mixed4c_pool_reduce_pre_relu_conv",
+        direction=direction,
+        channel_mode=channel_mode,
     )
     assert_gradient_descent(objective, model)
 
@@ -279,8 +322,10 @@ def test_direction(model_and_channel_mode):
 )
 def test_direction_neuron(model_and_channel_mode):
     model, channel_mode = model_and_channel_mode
-    direction = torch.rand(512) * 1000
+    direction = torch.rand(64) * 1000
     objective = objectives.direction_neuron(
-        layer="mixed4c", direction=direction, channel_mode=channel_mode
+        layer="mixed4c_pool_reduce_pre_relu_conv",
+        direction=direction,
+        channel_mode=channel_mode,
     )
     assert_gradient_descent(objective, model)
