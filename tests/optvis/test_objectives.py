@@ -265,9 +265,9 @@ def test_channel_interpolate(model_and_channel_mode):
     model, channel_mode = model_and_channel_mode
     objective = objectives.channel_interpolate(
         "mixed4a_pool_reduce_pre_relu_conv",
-        465,
+        32,
         "mixed4a_pool_reduce_pre_relu_conv",
-        460,
+        33,
         channel_mode=channel_mode,
     )
     assert_gradient_descent(objective, model)
@@ -304,7 +304,7 @@ def test_diversity(model_and_channel_mode):
 )
 def test_direction(model_and_channel_mode):
     model, channel_mode = model_and_channel_mode
-    direction = torch.rand(512) * 1000
+    direction = torch.rand(64) * 1000
     objective = objectives.direction(
         layer="mixed4c_pool_reduce_pre_relu_conv",
         direction=direction,
@@ -322,7 +322,7 @@ def test_direction(model_and_channel_mode):
 )
 def test_direction_neuron(model_and_channel_mode):
     model, channel_mode = model_and_channel_mode
-    direction = torch.rand(512) * 1000
+    direction = torch.rand(64) * 1000
     objective = objectives.direction_neuron(
         layer="mixed4c_pool_reduce_pre_relu_conv",
         direction=direction,
