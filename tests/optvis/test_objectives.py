@@ -52,7 +52,7 @@ def channel_last_conv_linear_model_and_channel_mode():
                 64, 64, bias=False
             )
             self.mixed4c_pool_reduce_pre_relu_conv = torch.nn.Linear(
-                64, 512, bias=False
+                64, 64, bias=False
             )
             self.relu = torch.nn.ReLU()
 
