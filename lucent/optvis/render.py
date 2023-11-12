@@ -70,7 +70,10 @@ def render_vis(
     apply_gradient_masks: bool = False,
 ) -> Union[List[np.ndarray], Tuple[List[np.ndarray], List[np.ndarray]]]:
     if params_f is None:
-        params_f = lambda: param.image(128)
+        if target_image_shape is None:
+            raise ValueError("target_image_shape must be specified if params_f is None. "
+                             "For quick results, try target_image_shape=(128, 128).")
+        params_f = lambda: param.image(target_image_shape)
     # params_f is a function that should return two things:
     # (1) params,  parameters to update, which we pass to the optimizer
     # (2) image_f, a function that returns an image as a tensor
