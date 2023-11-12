@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import, division, print_function
 
+import math
 import warnings
 from typing import Callable, List, Optional, Sequence, Tuple
 
@@ -167,7 +168,7 @@ def compose(
 
 
 def _roundup(value: float) -> int:
-    return int(np.ceil(value).astype(int))
+    return int(math.ceil(value))
 
 
 def _rads2angle(angle: float, units: str) -> float:
