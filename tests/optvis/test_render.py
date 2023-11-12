@@ -126,4 +126,4 @@ def test_partial_modelhook(inceptionv1_model):
         assert hook("labels").shape == (1, 1008)
         assert hook("mixed4a").shape == (1, 508, 14, 14)
         with pytest.raises(AssertionError):
-            print(hook("mixed4b").shape)
+            _ = hook("mixed4b").shape

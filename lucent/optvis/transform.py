@@ -167,7 +167,7 @@ def compose(
 
 
 def _roundup(value: float) -> int:
-    return np.ceil(value).astype(int)
+    return int(np.ceil(value).astype(int))
 
 
 def _rads2angle(angle: float, units: str) -> float:
