@@ -41,8 +41,8 @@ class RenderInterrupt(Exception):
 def render_vis(
     model: nn.Module,
     objective_f: ObjectiveT,
-    target_image_shape: Optional[Tuple[int, int]],
-    preprocess: Optional[Union[str, Callable[[torch.Tensor], torch.Tensor]]],
+    target_image_shape: Optional[Tuple[int, int]] = None,
+    preprocess: Optional[Union[str, Callable[[torch.Tensor], torch.Tensor]]] = None,
     params_f: Optional[ParamsT] = None,
     optimizer_f: Optional[OptimizerT] = None,
     transforms: Optional[List[Callable[[torch.Tensor], torch.Tensor]]] = None,
