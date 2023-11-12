@@ -15,6 +15,8 @@
 
 from __future__ import absolute_import, division, print_function
 
+import math
+import warnings
 from typing import Callable, List, Optional, Sequence, Tuple
 
 import kornia
@@ -166,7 +168,7 @@ def compose(
 
 
 def _roundup(value: float) -> int:
-    return np.ceil(value).astype(int)
+    return int(math.ceil(value))
 
 
 def _rads2angle(angle: float, units: str) -> float:
@@ -418,5 +420,7 @@ def get_standard_transforms(
     if target_shape:
         augmentations.append(center_crop(*target_shape))
         augmentations.append(resize(*target_shape))
+    else:
+        warnings.warn("No target shape provided, so no resize will be performed.")
 
     return augmentations

@@ -21,18 +21,9 @@ applies torch.nn.Upsample (which can only resize 2 dimensions).
 
 from __future__ import absolute_import, division, print_function
 
-from numbers import Number
-from typing import Sequence
+import math
 
 import torch
-
-
-def product(values: Sequence[Number]) -> Number:
-    """Multiply together the elements of a list."""
-    prod = 1
-    for x in values:
-        prod *= x
-    return prod
 
 
 def collapse_shape(shape, a, b):
@@ -61,7 +52,7 @@ def collapse_shape(shape, a, b):
         n_pad = b - len(shape)
         pad = n_pad * [1]
         return collapse_shape(shape + pad, a, b)
-    return [product(shape[:a])] + shape[a:b] + [product(shape[b:])]
+    return [math.prod(shape[:a])] + shape[a:b] + [math.prod(shape[b:])]
 
 
 def resize_bilinear_nd(t, target_shape):

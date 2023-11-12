@@ -30,7 +30,6 @@ def test_hue_to_rgb():
 
 def test_sparse_channels_to_rgb():
     sparse = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-    print(collapse_channels.sparse_channels_to_rgb(sparse))
     assert np.allclose(
         collapse_channels.sparse_channels_to_rgb(sparse), sparse, atol=1e-4
     )
