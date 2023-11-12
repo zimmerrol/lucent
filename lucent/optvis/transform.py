@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import, division, print_function
 
+import warnings
 from typing import Callable, List, Optional, Sequence, Tuple
 
 import kornia
@@ -418,5 +419,7 @@ def get_standard_transforms(
     if target_shape:
         augmentations.append(center_crop(*target_shape))
         augmentations.append(resize(*target_shape))
+    else:
+        warnings.warn("No target shape provided, so no resize will be performed.")
 
     return augmentations
