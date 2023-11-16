@@ -65,15 +65,16 @@ class RedirectedReLUFunction(torch.autograd.Function):
             # If the input is negative (and the actual gradient, thus, would be zero)
             # we redirect the gradient to the input if the gradient before points
             # in positive direction.
-            redirected_grad_input = torch.where(
-                (input < 0) | (grad_input > 0), torch.zeros_like(grad_input), grad_input
+            redirected_grad_output = torch.where(
+                (input < 0) & (grad_output > 0), torch.zeros_like(grad_output), grad_output
             )
 
             # Only use redirected gradient where nothing got through original gradient.
             grad_input_reshaped = grad_input.reshape(grad_input.size(0), -1)
             grad_mag = torch.norm(grad_input_reshaped, dim=1)
             grad_mag = grad_mag.view(grad_mag.size(0), *([1] * (grad_input.dim() - 1)))
-            grad_input = torch.where(grad_mag > 0, grad_input, redirected_grad_input)
+
+            grad_input = torch.where(grad_mag > 0, grad_input, redirected_grad_output)
 
         # Gradient wrt. inplace variable is always None.
         return grad_input, None
@@ -111,17 +112,17 @@ class RedirectedGELUFunction(torch.autograd.Function):
             # If the input is negative (and the actual gradient, thus, would be zero)
             # we redirect the gradient to the input if the gradient before points
             # in positive direction.
-            redirected_grad_input = torch.where(
-                (input < 0.0) | (grad_input > 0),
-                torch.zeros_like(grad_input),
-                grad_input,
+            redirected_grad_output = torch.where(
+                (input < 0.0) & (grad_output > 0),
+                torch.zeros_like(grad_output),
+                grad_output,
             )
 
             # Only use redirected gradient where nothing got through original gradient.
             grad_input_reshaped = grad_input.reshape(grad_input.size(0), -1)
             grad_mag = torch.norm(grad_input_reshaped, dim=1)
             grad_mag = grad_mag.view(grad_mag.size(0), *([1] * (grad_input.dim() - 1)))
-            grad_input = torch.where(grad_mag > 0, grad_input, redirected_grad_input)
+            grad_input = torch.where(grad_mag > 0, grad_input, redirected_grad_output)
 
         # Gradient wrt. approximate variable is always None.
         return grad_input, None
